@@ -1,3 +1,4 @@
+
 import { FORUM_CATEGORIES, MOCK_THREADS } from "@/lib/constants";
 import type { ForumThread } from "@/types";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -49,8 +50,8 @@ export default function ForumPostPage({ params }: { params: { categorySlug: stri
             </div>
         </CardHeader>
         <CardContent className="py-6">
-          <p className="text-lg">This is the main content of the forum post. It would typically be longer and more detailed. For now, this is a placeholder to illustrate the structure of a post page.</p>
-          <p className="mt-4">Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
+          <p className="text-lg">This is the main content of the forum post. This example post discusses the importance of community involvement in local governance. Active participation can lead to better resource allocation and more responsive services.</p>
+          <p className="mt-4">Further discussion could explore specific ways community members can get involved, such as attending town hall meetings, joining local committees, or using platforms like CivicConnect NG to voice concerns and propose solutions. Collaboration between citizens and officials is key to progress.</p>
         </CardContent>
         <CardFooter className="text-xs text-muted-foreground border-t pt-4">
           Posted on: {new Date().toLocaleDateString()} (Mock Date)
@@ -97,3 +98,4 @@ export default function ForumPostPage({ params }: { params: { categorySlug: stri
     </div>
   );
 }
+

@@ -1,3 +1,4 @@
+
 "use client";
 
 import type { NavItem, UserRole } from "@/types";
@@ -29,41 +30,84 @@ import {
 } from "@/components/ui/sidebar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { LogOut, Menu, ChevronDown } from "lucide-react";
-import React from "react";
+import React, { useEffect, useState } from "react";
 
 type AppShellProps = {
   userRole: UserRole;
-  userName: string; // Mocked for now
   navItems: NavItem[];
   children: React.ReactNode;
+  // userName and titlePrefix will be derived from mock user data for now
 };
 
-export function AppShell({ userRole, userName, navItems, children }: AppShellProps) {
+type MockUser = {
+  firstName: string;
+  lastName: string;
+  gender: 'male' | 'female' | 'other' | string; // Allow string for flexibility if localstorage is malformed
+};
+
+export function AppShell({ userRole, navItems, children }: AppShellProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const [currentUser, setCurrentUser] = useState<MockUser | null>(null);
+
+  useEffect(() => {
+    // In a real app, user data would come from an auth context/state manager
+    if (typeof window !== 'undefined') {
+      const storedUser = localStorage.getItem('mockUser');
+      if (storedUser) {
+        try {
+          setCurrentUser(JSON.parse(storedUser));
+        } catch (e) {
+          console.error("Failed to parse mock user from localStorage", e);
+          // Fallback to a generic name if parsing fails or no user
+          setCurrentUser({ firstName: userRole === 'citizen' ? 'Citizen' : 'Official', lastName: 'User', gender: 'other' });
+        }
+      } else {
+         setCurrentUser({ firstName: userRole === 'citizen' ? 'Citizen' : 'Official', lastName: 'User', gender: 'other' });
+      }
+    }
+  }, [userRole]);
+
+
+  const getTitlePrefix = (gender?: string) => {
+    if (gender === 'male') return 'Mr.';
+    if (gender === 'female') return 'Mrs.';
+    return '';
+  };
+
+  const userNameDisplay = currentUser 
+    ? `${getTitlePrefix(currentUser.gender)} ${currentUser.firstName} ${currentUser.lastName}`.trim()
+    : (userRole === 'citizen' ? 'Citizen User' : 'Gov. Official');
+  
+  const avatarInitial = currentUser ? (currentUser.firstName ? currentUser.firstName.charAt(0) : 'U') : 'U';
+
 
   const getPageTitle = () => {
     const currentNavItem = navItems.find(item => pathname === item.href || (item.matchStartsWith && pathname.startsWith(item.href)));
     if (currentNavItem) return currentNavItem.title;
-    if (pathname.includes('/forum/')) return "Forum Discussion"; // Example for dynamic sub-pages
+    if (pathname.includes('/forum/')) return "Forum Discussion";
+    if (pathname.includes('/my-reports/')) return "Issue Details";
+    if (pathname.includes('/learn/')) return "Educational Content";
     return APP_NAME;
   };
 
   const handleLogout = () => {
-    // Simulate logout
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('mockUser');
+    }
     router.push('/');
   };
   
   const UserAvatar = () => (
     <Avatar className="h-9 w-9">
-      <AvatarImage src={`https://placehold.co/100x100.png?text=${userName.charAt(0)}`} alt={userName} data-ai-hint="user avatar" />
-      <AvatarFallback>{userName.charAt(0).toUpperCase()}</AvatarFallback>
+      <AvatarImage src={`https://placehold.co/100x100.png?text=${avatarInitial}`} alt={userNameDisplay} data-ai-hint="user avatar" />
+      <AvatarFallback>{avatarInitial.toUpperCase()}</AvatarFallback>
     </Avatar>
   );
 
   return (
     <SidebarProvider defaultOpen>
-      <SidebarHSN navItems={navItems} userRole={userRole} userName={userName} onLogout={handleLogout} pageTitle={getPageTitle()} />
+      <SidebarHSN navItems={navItems} userRole={userRole} userName={userNameDisplay} avatarInitial={avatarInitial} onLogout={handleLogout} pageTitle={getPageTitle()} />
       <SidebarInset>
         <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background/80 px-4 backdrop-blur-md sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
           <div className="flex items-center gap-2 md:hidden">
@@ -80,13 +124,13 @@ export function AppShell({ userRole, userName, navItems, children }: AppShellPro
                 className="group flex items-center gap-x-2.5 rounded-full px-3 py-2 text-sm font-medium hover:bg-muted/50"
               >
                 <UserAvatar />
-                <span className="hidden md:block">{userName}</span>
+                <span className="hidden md:block">{userNameDisplay}</span>
                 <ChevronDown className="hidden h-4 w-4 text-muted-foreground transition-transform duration-300 group-data-[state=open]:rotate-180 md:block" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel className="flex flex-col">
-                <span>{userName}</span>
+                <span>{userNameDisplay}</span>
                 <span className="text-xs font-normal text-muted-foreground">
                   {userRole.charAt(0).toUpperCase() + userRole.slice(1)}
                 </span>
@@ -94,7 +138,7 @@ export function AppShell({ userRole, userName, navItems, children }: AppShellPro
               <DropdownMenuSeparator />
               {USER_MENU_NAV_ITEMS.map((item) => (
                 <DropdownMenuItem key={item.title} asChild className="cursor-pointer">
-                  {item.href === '/' ? (
+                  {item.href === '/' ? ( // Check for logout specifically
                      <button onClick={handleLogout} className="w-full text-left flex items-center">
                        <item.icon className="mr-2 h-4 w-4" />
                        {item.title}
@@ -120,14 +164,13 @@ export function AppShell({ userRole, userName, navItems, children }: AppShellPro
 
 
 // Helper component HSN (Headless Sidebar Navigation)
-// This is based on the structure from shadcn/ui sidebar component example
-const SidebarHSN = ({ navItems, userRole, userName, onLogout, pageTitle }: { navItems: NavItem[], userRole: string, userName: string, onLogout: () => void, pageTitle: string }) => {
+const SidebarHSN = ({ navItems, userRole, userName, avatarInitial, onLogout, pageTitle }: { navItems: NavItem[], userRole: string, userName: string, avatarInitial: string, onLogout: () => void, pageTitle: string }) => {
   const pathname = usePathname();
   
   const UserAvatar = () => (
     <Avatar className="h-8 w-8">
-      <AvatarImage src={`https://placehold.co/100x100.png?text=${userName.charAt(0)}`} alt={userName} data-ai-hint="user avatar" />
-      <AvatarFallback>{userName.charAt(0).toUpperCase()}</AvatarFallback>
+      <AvatarImage src={`https://placehold.co/100x100.png?text=${avatarInitial}`} alt={userName} data-ai-hint="user avatar" />
+      <AvatarFallback>{avatarInitial.toUpperCase()}</AvatarFallback>
     </Avatar>
   );
 
@@ -144,7 +187,7 @@ const SidebarHSN = ({ navItems, userRole, userName, onLogout, pageTitle }: { nav
         </div>
          {/* Mobile header inside sidebar drawer */}
         <div className="my-2 flex items-center justify-between border-b pb-2 md:hidden">
-            <h1 className="text-lg font-semibold">{pageTitle}</h1>
+            <h1 className="text-lg font-semibold">{pageTitle}</h1> {/* Use dynamic page title */}
             <SidebarTrigger />
         </div>
         <div className="flex items-center gap-2 border-b pb-2 pt-1 md:hidden">

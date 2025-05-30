@@ -1,6 +1,8 @@
+
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { AuthForm } from "@/components/auth/auth-form";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { UserRole } from "@/types";
@@ -37,6 +39,13 @@ export default function LoginPage() {
           <AuthForm userType="official" />
         </TabsContent>
       </Tabs>
+
+       <p className="mt-6 text-center text-sm">
+        New user?{" "}
+        <Link href="/signup" className="font-medium text-primary hover:underline">
+          Create an account
+        </Link>
+      </p>
 
       <footer className="mt-12 text-center text-sm text-muted-foreground">
         <p>&copy; {new Date().getFullYear()} {APP_NAME}. All rights reserved.</p>

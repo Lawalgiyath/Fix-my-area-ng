@@ -1,3 +1,4 @@
+
 import type { NavItem, ForumCategory, EducationalContent, LanguageOption, Issue } from '@/types';
 import {
   LayoutDashboard,
@@ -17,7 +18,8 @@ import {
   Settings,
   UserCircle,
   Gavel,
-  BarChart3
+  BarChart3,
+  Info // Added for "Other" category in report form
 } from 'lucide-react';
 
 export const APP_NAME = "CivicConnect NG";
@@ -40,9 +42,9 @@ export const OFFICIAL_NAV_ITEMS: NavItem[] = [
 ];
 
 export const USER_MENU_NAV_ITEMS: NavItem[] = [
-    { title: 'Profile', href: '#', icon: UserCircle },
-    { title: 'Settings', href: '#', icon: Settings },
-    { title: 'Logout', href: '/', icon: LogOut },
+    { title: 'Profile', href: '#', icon: UserCircle }, // Placeholder link
+    { title: 'Settings', href: '#', icon: Settings }, // Placeholder link
+    { title: 'Logout', href: '/', icon: LogOut }, // Ensure this logs out correctly
 ];
 
 
@@ -52,16 +54,91 @@ export const FORUM_CATEGORIES: ForumCategory[] = [
   { slug: 'electricity', name: 'Electricity', description: 'Issues and suggestions regarding power supply and electrical infrastructure.', icon: Zap },
   { slug: 'water', name: 'Water Supply', description: 'Conversations about water access, quality, and plumbing.', icon: Droplets },
   { slug: 'security', name: 'Security', description: 'Community safety, policing, and security concerns.', icon: Shield },
-  { slug: 'other', name: 'Other Issues', description: 'General discussions for issues not covered in other categories.', icon: MessagesSquare },
+  { slug: 'other', name: 'Other Issues', description: 'General discussions for issues not covered in other categories.', icon: Info },
 ];
 
 export const EDUCATIONAL_CONTENT: EducationalContent[] = [
-  { id: '1', title: 'How to File an Effective Report', summary: 'Learn the best practices for reporting issues to ensure they get attention.', icon: FilePlus2, imageUrl: 'https://placehold.co/600x400', dataAiHint: 'writing report' },
-  { id: '2', title: 'Understanding Your Civic Rights', summary: 'Know your rights as a citizen and how to exercise them responsibly.', icon: Gavel, imageUrl: 'https://placehold.co/600x400', dataAiHint: 'justice law' },
-  { id: '3', title: 'What Constitutes Corruption?', summary: 'An overview of different forms of corruption and how to identify them.', icon: Users, imageUrl: 'https://placehold.co/600x400', dataAiHint: 'government meeting' },
-  { id: '4', title: 'Community Safety Tips', summary: 'Practical advice for improving safety and security in your neighborhood.', icon: Shield, imageUrl: 'https://placehold.co/600x400', dataAiHint: 'community people' },
-  { id: '5', title: 'The Importance of Waste Management', summary: 'Why proper waste disposal and recycling matter for public health and the environment.', icon: Trash2, imageUrl: 'https://placehold.co/600x400', dataAiHint: 'clean environment' },
-  { id: '6', title: 'Conserving Water Resources', summary: 'Tips and information on how to use water more efficiently.', icon: Droplets, imageUrl: 'https://placehold.co/600x400', dataAiHint: 'water conservation' },
+  { 
+    id: '1', 
+    title: 'How to File an Effective Report', 
+    summary: 'Learn the best practices for reporting issues to ensure prompt attention and resolution from authorities.', 
+    fullContent: `
+### Understanding the Importance of Effective Reporting
+When you report an issue, you're not just complaining; you're actively participating in the improvement of your community. An effective report provides clear, concise, and actionable information that helps authorities understand the problem and take appropriate steps. Vague or incomplete reports can lead to delays or misunderstandings.
+
+### Key Elements of an Effective Report:
+1.  **Clear and Specific Title:** Your title should immediately tell officials what the issue is. Instead of "Road problem," try "Large Pothole Causing Traffic Hazard on Elm Street."
+2.  **Detailed Description:**
+    *   **What:** Describe the issue precisely. Is it a broken pipe, an uncollected heap of refuse, a faulty streetlight, or a dangerous road condition?
+    *   **Where:** Provide an exact location. Use street names, house numbers, landmarks (e.g., "opposite the blue mosque," "near the big mango tree at the junction"). If possible, mention the local government area or ward.
+    *   **When:** When did you first notice the problem? Is it ongoing? Does it happen at specific times?
+    *   **Impact:** Explain how the issue affects you or the community. Does it pose a safety risk? Does it disrupt daily life? Does it damage property?
+    *   **Photos/Videos (if applicable):** Visual evidence can be very powerful. If you can safely take a clear photo or short video, include it. (The app's report form allows for media attachment).
+3.  **Your Contact Information (Optional but Recommended):** Providing your contact details (if you're comfortable) allows authorities to reach out for clarification if needed. This app assumes you're logged in, so your identity might be linked.
+4.  **Polite and Respectful Tone:** Even if you're frustrated, maintain a respectful tone. The goal is to get the issue resolved.
+5.  **One Issue Per Report:** If you have multiple unrelated issues, file separate reports. This helps in tracking and assigning them to the correct departments.
+
+### Example of a Good vs. Poor Report:
+**Poor Report:**
+*   Title: Water issue
+*   Description: No water in my area. Please fix.
+
+**Effective Report:**
+*   Title: No Water Supply for 3 Days in Sunshine Estate, Phase 2
+*   Description: Residents of Sunshine Estate, Phase 2, specifically along Bright Avenue and Hope Close, have had no water supply since Monday, July 29th, 2024. This is affecting over 50 households. We have not received any notification about planned maintenance. Please investigate and restore supply urgently.
+*   Location: Sunshine Estate, Phase 2 (Bright Avenue & Hope Close)
+
+By following these guidelines, you significantly increase the chances of your report being understood and acted upon quickly. Your contribution is vital for building a better community for everyone.
+    `,
+    icon: FilePlus2, 
+    imageUrl: 'https://placehold.co/600x400.png', 
+    dataAiHint: 'writing report' 
+  },
+  { 
+    id: '2', 
+    title: 'Understanding Your Civic Rights', 
+    summary: 'Know your rights as a citizen and how to exercise them responsibly within the Nigerian context.', 
+    fullContent: 'Civic rights are fundamental to a functioning democracy. This section will detail key rights such as freedom of speech, assembly, right to basic amenities, and how these apply in Nigeria, along with responsibilities. (Full content to be written)',
+    icon: Gavel, 
+    imageUrl: 'https://placehold.co/600x400.png', 
+    dataAiHint: 'justice law' 
+  },
+  { 
+    id: '3', 
+    title: 'What Constitutes Corruption?', 
+    summary: 'An overview of different forms of corruption, how to identify them, and the impact on society.', 
+    fullContent: 'Corruption takes many forms, from bribery and extortion to nepotism and embezzlement. This guide will explain these, provide examples, and discuss reporting mechanisms. (Full content to be written)',
+    icon: Users, 
+    imageUrl: 'https://placehold.co/600x400.png', 
+    dataAiHint: 'government meeting' 
+  },
+  { 
+    id: '4', 
+    title: 'Community Safety Tips', 
+    summary: 'Practical advice for improving safety and security in your neighborhood, including setting up vigilantes.', 
+    fullContent: 'Learn about neighborhood watch programs, basic home security, reporting suspicious activities, and collaborating with local law enforcement to enhance community safety. (Full content to be written)',
+    icon: Shield, 
+    imageUrl: 'https://placehold.co/600x400.png', 
+    dataAiHint: 'community people' 
+  },
+  { 
+    id: '5', 
+    title: 'The Importance of Waste Management', 
+    summary: 'Why proper waste disposal and recycling matter for public health, the environment, and aesthetics.', 
+    fullContent: 'This article explores the health hazards of improper waste disposal, the benefits of recycling, and how individual and community efforts can lead to a cleaner environment. (Full content to be written)',
+    icon: Trash2, 
+    imageUrl: 'https://placehold.co/600x400.png', 
+    dataAiHint: 'clean environment' 
+  },
+  { 
+    id: '6', 
+    title: 'Conserving Water Resources', 
+    summary: 'Tips and information on how to use water more efficiently at home and in the community.', 
+    fullContent: 'Water is a precious resource. This guide provides practical tips for reducing water consumption, fixing leaks, and understanding the importance of water conservation for sustainability. (Full content to be written)',
+    icon: Droplets, 
+    imageUrl: 'https://placehold.co/600x400.png', 
+    dataAiHint: 'water conservation' 
+  },
 ];
 
 export const MULTILINGUAL_GUIDE_LANGUAGES: LanguageOption[] = [
@@ -116,7 +193,7 @@ export const MOCK_THREADS: Record<string, ForumThread[]> = {
   'electricity': [
      { id: 'el1', title: 'Dealing with transformer vandalism', author: 'PowerUser', lastReply: '3 days ago', repliesCount: 12, categorySlug: 'electricity' },
   ],
-  'water-supply': [
+  'water-supply': [ // Corrected key from 'water' to 'water-supply' to match FORUM_CATEGORIES slug
      { id: 'ws1', title: 'How to report illegal water connections?', author: 'WaterWatcher', lastReply: 'yesterday', repliesCount: 5, categorySlug: 'water-supply' },
   ],
   'security': [

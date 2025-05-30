@@ -1,3 +1,4 @@
+
 import type { LucideIcon } from 'lucide-react';
 
 export type NavItem = {
@@ -10,6 +11,16 @@ export type NavItem = {
 };
 
 export type UserRole = "citizen" | "official";
+
+export type UserProfile = {
+  id: string;
+  firstName: string;
+  lastName:string;
+  email: string;
+  role: UserRole;
+  gender?: 'male' | 'female' | 'other';
+  title?: 'Mr.' | 'Mrs.' | ''; // For salutation
+};
 
 export type Issue = {
   id: string;
@@ -47,6 +58,7 @@ export type EducationalContent = {
   id: string;
   title: string;
   summary: string;
+  fullContent?: string; // Added for detailed write-ups
   icon: LucideIcon;
   imageUrl?: string;
   dataAiHint?: string;

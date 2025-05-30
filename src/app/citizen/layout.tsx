@@ -1,4 +1,5 @@
-"use client";
+
+"use client"; // Keep as client component due to AppShell and potential auth context
 
 import { AppShell } from "@/components/layout/app-shell";
 import { CITIZEN_NAV_ITEMS } from "@/lib/constants";
@@ -8,12 +9,10 @@ export default function CitizenLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // In a real app, userName would come from auth state
-  const userName = "Citizen User"; 
+  // Mock user data is now handled within AppShell using localStorage for demo purposes
   return (
     <AppShell
       userRole="citizen"
-      userName={userName}
       navItems={CITIZEN_NAV_ITEMS}
     >
       {children}

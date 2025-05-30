@@ -1,4 +1,6 @@
+
 import type { Issue } from "@/types";
+import Link from "next/link";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,11 +21,11 @@ export function IssueCard({ issue }: IssueCardProps) {
   const currentStatusConfig = statusConfig[issue.status];
 
   return (
-    <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300">
+    <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300 flex flex-col h-full">
       <CardHeader>
         <div className="flex justify-between items-start">
-          <CardTitle className="text-xl font-semibold text-primary">{issue.title}</CardTitle>
-          <Badge variant="outline" className={`border-current ${currentStatusConfig.text}`}>
+          <CardTitle className="text-xl font-semibold text-primary line-clamp-2">{issue.title}</CardTitle>
+          <Badge variant="outline" className={`border-current ${currentStatusConfig.text} flex-shrink-0 ml-2`}>
             <currentStatusConfig.icon className={`mr-1.5 h-3.5 w-3.5 ${currentStatusConfig.text}`} />
             {issue.status}
           </Badge>
@@ -32,15 +34,15 @@ export function IssueCard({ issue }: IssueCardProps) {
           Reported on: {new Date(issue.dateReported).toLocaleDateString()}
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-3 flex-grow">
         <p className="text-sm text-foreground/90 line-clamp-3">{issue.description}</p>
         <div className="flex items-center text-xs text-muted-foreground">
-          <MapPin className="mr-1.5 h-4 w-4" />
-          <span>{issue.location}</span>
+          <MapPin className="mr-1.5 h-4 w-4 flex-shrink-0" />
+          <span className="truncate">{issue.location}</span>
         </div>
         <div className="flex items-center text-xs text-muted-foreground">
-          <Tag className="mr-1.5 h-4 w-4" />
-          <span>Category: {issue.category}</span>
+          <Tag className="mr-1.5 h-4 w-4 flex-shrink-0" />
+          <span className="truncate">Category: {issue.category}</span>
         </div>
         {issue.aiClassification && (
           <div className="text-xs text-muted-foreground italic">
@@ -48,9 +50,11 @@ export function IssueCard({ issue }: IssueCardProps) {
           </div>
         )}
       </CardContent>
-      <CardFooter className="flex justify-end gap-2">
-        <Button variant="ghost" size="sm" className="text-primary hover:bg-primary/10">
-          <MessageSquare className="mr-1.5 h-4 w-4" /> View Details / Comments
+      <CardFooter className="flex justify-end gap-2 border-t pt-4 mt-auto">
+        <Button asChild variant="ghost" size="sm" className="text-primary hover:bg-primary/10">
+          <Link href={`/citizen/my-reports/${issue.id}`}>
+            <MessageSquare className="mr-1.5 h-4 w-4" /> View Details / Comments
+          </Link>
         </Button>
       </CardFooter>
     </Card>

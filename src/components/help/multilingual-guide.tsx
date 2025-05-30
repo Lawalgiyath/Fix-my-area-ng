@@ -6,10 +6,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { MULTILINGUAL_GUIDE_LANGUAGES } from "@/lib/constants";
 import type { LanguageOption } from "@/types";
-import { Volume2 } from "lucide-react"; 
+import { VolumeX } from "lucide-react"; // Changed from Volume2 to VolumeX to indicate no sound
+import { useToast } from "@/hooks/use-toast";
+
 
 export function MultilingualGuide({ embedded = false }: { embedded?: boolean }) {
   const [activeLang, setActiveLang] = useState<string>(MULTILINGUAL_GUIDE_LANGUAGES[0].code);
+  const { toast } = useToast();
 
   const cardClasses = embedded 
     ? "w-full shadow-none border-0" 
@@ -17,6 +20,15 @@ export function MultilingualGuide({ embedded = false }: { embedded?: boolean }) 
   
   const headerPadding = embedded ? "pt-0 px-0" : "px-6";
   const contentPadding = embedded ? "px-0" : "px-6";
+
+  const handlePronounceClick = () => {
+    toast({
+      title: "Feature Coming Soon",
+      description: "Pronunciation help is not yet available.",
+      variant: "default",
+      className: "bg-blue-50 border-blue-200 text-blue-700"
+    });
+  };
 
 
   return (
@@ -49,8 +61,13 @@ export function MultilingualGuide({ embedded = false }: { embedded?: boolean }) 
                       <p className="font-medium text-foreground/90">{phraseItem.title}:</p>
                       <div className="flex justify-between items-center">
                         <p className="text-lg text-primary">{phraseItem.phrase}</p>
-                        <button title="Pronounce (simulation)" className="p-1 text-muted-foreground hover:text-primary">
-                           <Volume2 className="h-5 w-5"/>
+                        <button 
+                          title="Pronunciation (Feature Coming Soon)" 
+                          className="p-1 text-muted-foreground hover:text-primary"
+                          onClick={handlePronounceClick}
+                          aria-label={`Pronounce ${phraseItem.phrase} in ${lang.name} (coming soon)`}
+                        >
+                           <VolumeX className="h-5 w-5"/>
                         </button>
                       </div>
                     </li>
