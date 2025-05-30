@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -5,23 +6,31 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { MULTILINGUAL_GUIDE_LANGUAGES } from "@/lib/constants";
 import type { LanguageOption } from "@/types";
-import { Volume2 } from "lucide-react"; // For a "pronounce" icon (simulated)
+import { Volume2 } from "lucide-react"; 
 
-export function MultilingualGuide() {
+export function MultilingualGuide({ embedded = false }: { embedded?: boolean }) {
   const [activeLang, setActiveLang] = useState<string>(MULTILINGUAL_GUIDE_LANGUAGES[0].code);
 
-  const currentLanguageData = MULTILINGUAL_GUIDE_LANGUAGES.find(lang => lang.code === activeLang) || MULTILINGUAL_GUIDE_LANGUAGES[0];
+  const cardClasses = embedded 
+    ? "w-full shadow-none border-0" 
+    : "w-full max-w-2xl mx-auto shadow-xl";
+  
+  const headerPadding = embedded ? "pt-0 px-0" : "px-6";
+  const contentPadding = embedded ? "px-0" : "px-6";
+
 
   return (
-    <Card className="w-full max-w-2xl mx-auto shadow-xl">
-      <CardHeader>
-        <CardTitle className="text-2xl font-bold text-primary">Multilingual Help Guide</CardTitle>
-        <CardDescription>
-          Common phrases in local languages to help you navigate and report issues.
-          Select a language to see translations.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
+    <Card className={cardClasses}>
+      {!embedded && (
+        <CardHeader className={headerPadding}>
+          <CardTitle className="text-2xl font-bold text-primary">Multilingual Help Guide</CardTitle>
+          <CardDescription>
+            Common phrases in local languages to help you navigate and report issues.
+            Select a language to see translations.
+          </CardDescription>
+        </CardHeader>
+      )}
+      <CardContent className={`${contentPadding} ${embedded ? 'pt-0' : ''}`}>
         <Tabs value={activeLang} onValueChange={setActiveLang} className="w-full">
           <TabsList className="grid w-full grid-cols-3 mb-6">
             {MULTILINGUAL_GUIDE_LANGUAGES.map((lang: LanguageOption) => (
