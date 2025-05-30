@@ -28,7 +28,6 @@ export type Issue = {
   id: string; // Document ID from Firestore
   title: string;
   description: string;
-  // category: string; // This can be derived from aiClassification or categoryManual
   status: "Submitted" | "In Progress" | "Resolved" | "Rejected";
   dateReported: string; // ISO string from client-side initiation or server
   location: string;
@@ -59,11 +58,12 @@ export type ForumThread = {
 };
 
 export type EducationalContent = {
-  id: '1'; // Only one item now
+  id: string; 
   title: string;
   summary: string;
   fullContent?: string;
   icon: LucideIcon;
+  dataAiHint?: string; // For placeholder image context
 };
 
 export type LanguageOption = {

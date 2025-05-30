@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { AlertCircle, CheckCircle, Clock, MapPin, Tag, MessageSquare, ArrowLeft, User, CalendarDays, Info } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
-// Image import removed
+import Image from 'next/image'; // Added Image import
 import { useToast } from "@/hooks/use-toast";
 
 
@@ -22,12 +22,12 @@ const statusConfig: Record<Issue["status"], { icon: React.ElementType; badgeClas
 };
 
 // Mock comments are local to this page for now
-const MOCK_COMMENTS: {id: string; author: string; text: string; date: string; userType: 'official' | 'citizen'}[] = []; // Emptied comments
+const MOCK_COMMENTS: {id: string; author: string; text: string; date: string; userType: 'official' | 'citizen'}[] = []; 
 
 export default function IssueDetailPage() {
   const params = useParams();
   const issueId = params.issueId as string;
-  const issue = MOCK_ISSUES.find((iss) => iss.id === issueId);
+  const issue = MOCK_ISSUES.find((iss) => iss.id === issueId); // MOCK_ISSUES is empty, so this will be undefined
   const { toast } = useToast();
 
   const handlePostComment = () => {
@@ -39,12 +39,16 @@ export default function IssueDetailPage() {
     });
   };
 
-  if (!issue) {
+  if (!issue) { // This will always be true since MOCK_ISSUES is empty.
+              // In a real app, you'd fetch the issue by ID here.
     return (
       <div className="container mx-auto py-8 text-center">
         <AlertCircle className="mx-auto h-12 w-12 text-destructive mb-4" />
         <h1 className="text-2xl font-semibold">Issue Not Found</h1>
-        <p className="text-muted-foreground">The issue you are looking for does not exist or may have been removed.</p>
+        <p className="text-muted-foreground">
+          The issue you are looking for does not exist or is not available. 
+          If you just submitted it, it might take a moment to appear or you may need to fetch it from the database.
+        </p>
         <Button asChild variant="outline" className="mt-6">
           <Link href="/citizen/my-reports">
             <ArrowLeft className="mr-2 h-4 w-4" /> Back to My Reports
@@ -90,11 +94,11 @@ export default function IssueDetailPage() {
             </div>
             <div className="flex items-center text-muted-foreground">
               <Tag className="mr-2 h-5 w-5 text-primary flex-shrink-0" />
-              <strong>Category:</strong> <span className="ml-1">{issue.category}</span>
+              <strong>Category:</strong> <span className="ml-1">{issue.categoryManual || issue.aiClassification?.category || 'N/A'}</span>
             </div>
             <div className="flex items-center text-muted-foreground">
               <User className="mr-2 h-5 w-5 text-primary flex-shrink-0" />
-              <strong>Reporter:</strong> <span className="ml-1">{issue.reporter || 'N/A'}</span>
+              <strong>Reporter:</strong> <span className="ml-1">{issue.reportedById || 'N/A'}</span>
             </div>
             <div className="flex items-center text-muted-foreground">
               <CalendarDays className="mr-2 h-5 w-5 text-primary flex-shrink-0" />
@@ -108,14 +112,29 @@ export default function IssueDetailPage() {
               <p className="text-muted-foreground">Suggested Category: <span className="font-medium text-foreground">{issue.aiClassification.category}</span> ({(issue.aiClassification.confidence * 100).toFixed(0)}% confidence)</p>
             </div>
           )}
-
-          {/* Media section removed as images are removed */}
-          {(!issue.media || issue.media.length === 0) && (
-             <div>
-              <h3 className="text-lg font-semibold mb-2 text-primary">Attached Media</h3>
-               <p className="text-sm text-muted-foreground">No media was attached to this report.</p>
-            </div>
-          )}
+          
+          <div>
+            <h3 className="text-lg font-semibold mb-2 text-primary">Attached Media</h3>
+            {issue.mediaUrls && issue.mediaUrls.length > 0 ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mt-2">
+                {issue.mediaUrls.map((url, index) => (
+                  <div key={index} className="relative aspect-square rounded-lg overflow-hidden shadow-md">
+                    <Image
+                      // In a real scenario, this 'url' would be the actual media URL from Firestore/Storage
+                      // For placeholder:
+                      src={url.startsWith('http') ? url : "https://placehold.co/300x300.png"}
+                      alt={`Attached media ${index + 1}`}
+                      layout="fill"
+                      objectFit="cover"
+                      data-ai-hint="report evidence" 
+                    />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">No media was attached to this report.</p>
+            )}
+          </div>
         </CardContent>
       </Card>
 
