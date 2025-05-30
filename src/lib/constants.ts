@@ -1,5 +1,5 @@
 
-import type { NavItem, ForumCategory, EducationalContent, LanguageOption, Issue } from '@/types';
+import type { NavItem, ForumCategory, EducationalContent, LanguageOption, Issue, ForumThread } from '@/types';
 import {
   LayoutDashboard,
   FilePlus2,
@@ -58,10 +58,10 @@ export const FORUM_CATEGORIES: ForumCategory[] = [
 ];
 
 export const EDUCATIONAL_CONTENT: EducationalContent[] = [
-  { 
-    id: '1', 
-    title: 'How to File an Effective Report', 
-    summary: 'Learn the best practices for reporting issues to ensure prompt attention and resolution from authorities.', 
+  {
+    id: '1',
+    title: 'How to File an Effective Report',
+    summary: 'Learn the best practices for reporting issues to ensure prompt attention and resolution from authorities.',
     fullContent: `
 ### Understanding the Importance of Effective Reporting
 When you report an issue, you're not just complaining; you're actively participating in the improvement of your community. An effective report provides clear, concise, and actionable information that helps authorities understand the problem and take appropriate steps. Vague or incomplete reports can lead to delays or misunderstandings.
@@ -90,54 +90,54 @@ When you report an issue, you're not just complaining; you're actively participa
 
 By following these guidelines, you significantly increase the chances of your report being understood and acted upon quickly. Your contribution is vital for building a better community for everyone.
     `,
-    icon: FilePlus2, 
-    imageUrl: 'https://placehold.co/600x400.png', 
-    dataAiHint: 'writing report' 
+    icon: FilePlus2,
+    imageUrl: 'https://placehold.co/600x400.png',
+    dataAiHint: 'writing report'
   },
-  { 
-    id: '2', 
-    title: 'Understanding Your Civic Rights', 
-    summary: 'Know your rights as a citizen and how to exercise them responsibly within the Nigerian context.', 
+  {
+    id: '2',
+    title: 'Understanding Your Civic Rights',
+    summary: 'Know your rights as a citizen and how to exercise them responsibly within the Nigerian context.',
     fullContent: 'Civic rights are fundamental to a functioning democracy. This section will detail key rights such as freedom of speech, assembly, right to basic amenities, and how these apply in Nigeria, along with responsibilities. (Full content to be written)',
-    icon: Gavel, 
-    imageUrl: 'https://placehold.co/600x400.png', 
-    dataAiHint: 'justice law' 
+    icon: Gavel,
+    imageUrl: 'https://placehold.co/600x400.png',
+    dataAiHint: 'justice law'
   },
-  { 
-    id: '3', 
-    title: 'What Constitutes Corruption?', 
-    summary: 'An overview of different forms of corruption, how to identify them, and the impact on society.', 
+  {
+    id: '3',
+    title: 'What Constitutes Corruption?',
+    summary: 'An overview of different forms of corruption, how to identify them, and the impact on society.',
     fullContent: 'Corruption takes many forms, from bribery and extortion to nepotism and embezzlement. This guide will explain these, provide examples, and discuss reporting mechanisms. (Full content to be written)',
-    icon: Users, 
-    imageUrl: 'https://placehold.co/600x400.png', 
-    dataAiHint: 'government meeting' 
+    icon: Users, // Consider an icon more specific to corruption or ethics if available, e.g., EyeOff, Ban
+    imageUrl: 'https://placehold.co/600x400.png',
+    dataAiHint: 'ethics integrity'
   },
-  { 
-    id: '4', 
-    title: 'Community Safety Tips', 
-    summary: 'Practical advice for improving safety and security in your neighborhood, including setting up vigilantes.', 
+  {
+    id: '4',
+    title: 'Community Safety Tips',
+    summary: 'Practical advice for improving safety and security in your neighborhood, including setting up vigilantes.',
     fullContent: 'Learn about neighborhood watch programs, basic home security, reporting suspicious activities, and collaborating with local law enforcement to enhance community safety. (Full content to be written)',
-    icon: Shield, 
-    imageUrl: 'https://placehold.co/600x400.png', 
-    dataAiHint: 'community people' 
+    icon: Shield,
+    imageUrl: 'https://placehold.co/600x400.png',
+    dataAiHint: 'neighborhood safety'
   },
-  { 
-    id: '5', 
-    title: 'The Importance of Waste Management', 
-    summary: 'Why proper waste disposal and recycling matter for public health, the environment, and aesthetics.', 
+  {
+    id: '5',
+    title: 'The Importance of Waste Management',
+    summary: 'Why proper waste disposal and recycling matter for public health, the environment, and aesthetics.',
     fullContent: 'This article explores the health hazards of improper waste disposal, the benefits of recycling, and how individual and community efforts can lead to a cleaner environment. (Full content to be written)',
-    icon: Trash2, 
-    imageUrl: 'https://placehold.co/600x400.png', 
-    dataAiHint: 'clean environment' 
+    icon: Trash2,
+    imageUrl: 'https://placehold.co/600x400.png',
+    dataAiHint: 'clean environment'
   },
-  { 
-    id: '6', 
-    title: 'Conserving Water Resources', 
-    summary: 'Tips and information on how to use water more efficiently at home and in the community.', 
+  {
+    id: '6',
+    title: 'Conserving Water Resources',
+    summary: 'Tips and information on how to use water more efficiently at home and in the community.',
     fullContent: 'Water is a precious resource. This guide provides practical tips for reducing water consumption, fixing leaks, and understanding the importance of water conservation for sustainability. (Full content to be written)',
-    icon: Droplets, 
-    imageUrl: 'https://placehold.co/600x400.png', 
-    dataAiHint: 'water conservation' 
+    icon: Droplets,
+    imageUrl: 'https://placehold.co/600x400.png',
+    dataAiHint: 'water conservation'
   },
 ];
 
@@ -178,8 +178,8 @@ export const MOCK_ISSUES: Issue[] = [
   { id: '1', title: 'Large pothole on Main Street', description: 'A very large and dangerous pothole has formed on Main Street near the market. It has damaged several car tires.', category: 'Roads & Transport', status: 'Submitted', dateReported: '2024-07-28', location: 'Main Street, near Central Market', reporter: 'Citizen A', aiClassification: { category: "Roads & Transport", confidence: 0.95} },
   { id: '2', title: 'Irregular waste collection', description: 'Waste has not been collected in our area for the past two weeks. It is becoming a health hazard.', category: 'Waste Management', status: 'In Progress', dateReported: '2024-07-25', location: 'Sunshine Estate, Zone 3', reporter: 'Citizen B', aiClassification: { category: "Waste Management", confidence: 0.99}},
   { id: '3', title: 'Frequent power outages', description: 'We experience power outages almost daily, sometimes for several hours. This affects businesses and daily life.', category: 'Electricity', status: 'Resolved', dateReported: '2024-07-20', location: 'Liberty Avenue', reporter: 'Citizen C', aiClassification: { category: "Electricity", confidence: 0.92}},
-  { id: '4', title: 'Broken water pipe', description: 'A major water pipe burst this morning, flooding the street and wasting a lot of water.', category: 'Water Supply', status: 'Submitted', dateReported: '2024-07-29', location: 'Unity Close, Off Victory Road', reporter: 'Citizen D', aiClassification: { category: "Water", confidence: 0.98}},
-   { id: '5', title: 'Street lights not working', description: 'The street lights on Harmony Lane have been out for over a month, making the area unsafe at night.', category: 'Security', status: 'In Progress', dateReported: '2024-07-15', location: 'Harmony Lane, Peaceville', reporter: 'Citizen E', aiClassification: { category: "Electricity", confidence: 0.85}},
+  { id: '4', title: 'Broken water pipe', description: 'A major water pipe burst this morning, flooding the street and wasting a lot of water.', category: 'Water Supply', status: 'Submitted', dateReported: '2024-07-29', location: 'Unity Close, Off Victory Road', reporter: 'Citizen D', media: ['https://placehold.co/300x200.png', 'https://placehold.co/300x200.png'], aiClassification: { category: "Water", confidence: 0.98}},
+  { id: '5', title: 'Street lights not working', description: 'The street lights on Harmony Lane have been out for over a month, making the area unsafe at night.', category: 'Security', status: 'In Progress', dateReported: '2024-07-15', location: 'Harmony Lane, Peaceville', reporter: 'Citizen E', aiClassification: { category: "Electricity", confidence: 0.85}},
 ];
 
 export const MOCK_THREADS: Record<string, ForumThread[]> = {
@@ -193,8 +193,8 @@ export const MOCK_THREADS: Record<string, ForumThread[]> = {
   'electricity': [
      { id: 'el1', title: 'Dealing with transformer vandalism', author: 'PowerUser', lastReply: '3 days ago', repliesCount: 12, categorySlug: 'electricity' },
   ],
-  'water-supply': [ // Corrected key from 'water' to 'water-supply' to match FORUM_CATEGORIES slug
-     { id: 'ws1', title: 'How to report illegal water connections?', author: 'WaterWatcher', lastReply: 'yesterday', repliesCount: 5, categorySlug: 'water-supply' },
+  'water': [ // Corrected key from 'water' to 'water-supply' to match FORUM_CATEGORIES slug, this was 'water-supply' earlier, reverting based on user's constant file
+     { id: 'ws1', title: 'How to report illegal water connections?', author: 'WaterWatcher', lastReply: 'yesterday', repliesCount: 5, categorySlug: 'water' }, // Also updated categorySlug here
   ],
   'security': [
     { id: 'sc1', title: 'Neighborhood watch initiative forming', author: 'SafeStreets', lastReply: '4 hours ago', repliesCount: 30, categorySlug: 'security' },
