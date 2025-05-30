@@ -1,3 +1,5 @@
+"use client";
+
 import { AppShell } from "@/components/layout/app-shell";
 import { OFFICIAL_NAV_ITEMS } from "@/lib/constants";
 

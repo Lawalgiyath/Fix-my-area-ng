@@ -1,3 +1,5 @@
+"use client";
+
 import { AppShell } from "@/components/layout/app-shell";
 import { CITIZEN_NAV_ITEMS } from "@/lib/constants";
 
