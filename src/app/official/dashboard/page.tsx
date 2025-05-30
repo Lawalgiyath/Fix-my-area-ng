@@ -1,3 +1,4 @@
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertTriangle, CheckCircle, Clock, ListChecks, Users, BarChart3 } from "lucide-react";
 import Link from "next/link";
@@ -6,9 +7,9 @@ import { Button } from "@/components/ui/button";
 export default function OfficialDashboardPage() {
   const summaryData = [
     { title: "Total Reports Received", value: 125, icon: ListChecks, trend: "+15 this week", color: "text-blue-500" },
-    { title: "Pending Action", value: 32, icon: Clock, trend: "High priority", color: "text-yellow-500" },
-    { title: "Resolved This Month", value: 48, icon: CheckCircle, trend: "+5 from last month", color: "text-green-500" },
-    { title: "High Alert Issues", value: 5, icon: AlertTriangle, trend: "Requires immediate attention", color: "text-red-500" },
+    { title: "Pending Action", value: 32, icon: Clock, trend: "High priority: Several issues older than 3 days requiring immediate review and assignment.", color: "text-yellow-500" },
+    { title: "Resolved This Month", value: 48, icon: CheckCircle, trend: "+5 from last month's resolution count", color: "text-green-500" },
+    { title: "High Alert Issues", value: 5, icon: AlertTriangle, trend: "Requires immediate attention due to safety concerns.", color: "text-red-500" },
   ];
 
   return (
@@ -16,7 +17,7 @@ export default function OfficialDashboardPage() {
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle className="text-3xl font-bold text-primary">Official Admin Panel</CardTitle>
-          <CardDescription>Overview of civic issues and platform activity. Manage reports and monitor community feedback.</CardDescription>
+          <CardDescription className="line-clamp-3">Overview of civic issues and platform activity. Manage reports, monitor community feedback, and gain insights through analytics to improve service delivery.</CardDescription>
         </CardHeader>
          <CardContent className="grid gap-4 md:grid-cols-2">
            <Link href="/official/all-reports" passHref>
@@ -34,14 +35,14 @@ export default function OfficialDashboardPage() {
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         {summaryData.map((item) => (
-          <Card key={item.title} className="shadow-md hover:shadow-lg transition-shadow">
+          <Card key={item.title} className="shadow-md hover:shadow-lg transition-shadow flex flex-col">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{item.title}</CardTitle>
-              <item.icon className={`h-5 w-5 ${item.color}`} />
+              <CardTitle className="text-sm font-medium truncate">{item.title}</CardTitle>
+              <item.icon className={`h-5 w-5 ${item.color} flex-shrink-0`} />
             </CardHeader>
-            <CardContent>
+            <CardContent className="flex-grow">
               <div className="text-3xl font-bold">{item.value}</div>
-              <p className="text-xs text-muted-foreground">{item.trend}</p>
+              <p className="text-xs text-muted-foreground line-clamp-2">{item.trend}</p>
             </CardContent>
           </Card>
         ))}
@@ -56,18 +57,18 @@ export default function OfficialDashboardPage() {
           <CardContent>
             <ul className="space-y-3">
               <li className="flex items-start justify-between p-3 rounded-md bg-red-50 border border-red-200">
-                <div>
-                  <p className="font-semibold text-red-700">Major water pipe burst on Independence Way</p>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-red-700 truncate">Major water pipe burst on Independence Way causing significant local flooding and service disruption</p>
                   <p className="text-xs text-red-600">Reported: 2 hours ago - Category: Water Supply</p>
                 </div>
-                <Button variant="outline" size="sm" className="border-red-500 text-red-500 hover:bg-red-100">View</Button>
+                <Button variant="outline" size="sm" className="border-red-500 text-red-500 hover:bg-red-100 ml-2 flex-shrink-0">View</Button>
               </li>
               <li className="flex items-start justify-between p-3 rounded-md bg-yellow-50 border border-yellow-200">
-                 <div>
-                  <p className="font-semibold text-yellow-700">Bridge collapse warning on Express Road</p>
+                 <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-yellow-700 truncate">Bridge collapse warning on Express Road, structural integrity compromised</p>
                   <p className="text-xs text-yellow-600">Reported: 1 day ago - Category: Roads & Transport</p>
                 </div>
-                <Button variant="outline" size="sm" className="border-yellow-500 text-yellow-500 hover:bg-yellow-100">View</Button>
+                <Button variant="outline" size="sm" className="border-yellow-500 text-yellow-500 hover:bg-yellow-100 ml-2 flex-shrink-0">View</Button>
               </li>
             </ul>
           </CardContent>

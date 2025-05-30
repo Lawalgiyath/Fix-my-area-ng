@@ -1,3 +1,4 @@
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { FilePlus2, ListChecks, MessagesSquare, CheckCircle, AlertTriangle, Clock } from "lucide-react";
@@ -15,7 +16,7 @@ export default function CitizenDashboardPage() {
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle className="text-3xl font-bold">Welcome, Citizen!</CardTitle>
-          <CardDescription>Your central hub for civic engagement. Report issues, track progress, and connect with your community.</CardDescription>
+          <CardDescription className="line-clamp-3">Your central hub for civic engagement. Report issues, track progress, and connect with your community.</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-3">
           <Link href="/citizen/report-issue" passHref>
@@ -40,12 +41,12 @@ export default function CitizenDashboardPage() {
         {summaryStats.map(stat => (
           <Card key={stat.title} className="shadow-md">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
+              <CardTitle className="text-sm font-medium truncate">{stat.title}</CardTitle>
               <stat.icon className={`h-5 w-5 ${stat.color}`} />
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold">{stat.value}</div>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-muted-foreground line-clamp-2">
                 {stat.title === "Total Reports" ? "+2 this month" : 
                  stat.title === "Pending Review" ? "Awaiting action" : "Successfully addressed"}
               </p>
@@ -61,19 +62,19 @@ export default function CitizenDashboardPage() {
         <CardContent>
           <ul className="space-y-3">
             <li className="flex items-center space-x-3">
-              <CheckCircle className="h-5 w-5 text-green-500" />
-              <p>Your report "Broken Streetlight on Elm St" was marked as <span className="font-semibold text-green-600">Resolved</span>.</p>
-              <span className="ml-auto text-xs text-muted-foreground">2 days ago</span>
+              <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
+              <p className="truncate">Your report "<span className="font-semibold">Broken Streetlight on Elm St</span>" was marked as <span className="font-semibold text-green-600">Resolved</span>.</p>
+              <span className="ml-auto text-xs text-muted-foreground whitespace-nowrap">2 days ago</span>
             </li>
             <li className="flex items-center space-x-3">
-              <AlertTriangle className="h-5 w-5 text-yellow-500" />
-              <p>New forum post in "Roads & Transport": <span className="font-semibold text-primary">Traffic Light Timings</span>.</p>
-              <span className="ml-auto text-xs text-muted-foreground">5 hours ago</span>
+              <AlertTriangle className="h-5 w-5 text-yellow-500 flex-shrink-0" />
+              <p className="truncate">New forum post in "Roads & Transport": <span className="font-semibold text-primary">Traffic Light Timings</span>.</p>
+              <span className="ml-auto text-xs text-muted-foreground whitespace-nowrap">5 hours ago</span>
             </li>
              <li className="flex items-center space-x-3">
-              <FilePlus2 className="h-5 w-5 text-primary" />
-              <p>You submitted a new report: <span className="font-semibold text-primary">"Overflowing Dustbin at Park Entrance"</span>.</p>
-              <span className="ml-auto text-xs text-muted-foreground">1 day ago</span>
+              <FilePlus2 className="h-5 w-5 text-primary flex-shrink-0" />
+              <p className="truncate">You submitted a new report: <span className="font-semibold text-primary">"Overflowing Dustbin at Park Entrance"</span>.</p>
+              <span className="ml-auto text-xs text-muted-foreground whitespace-nowrap">1 day ago</span>
             </li>
           </ul>
         </CardContent>
