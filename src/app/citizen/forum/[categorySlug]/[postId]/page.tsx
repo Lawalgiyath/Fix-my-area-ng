@@ -1,22 +1,22 @@
 
-"use client"; // Added "use client" as it uses hooks like useToast
+"use client"; 
+import { use } from 'react'; // Added import
 import { FORUM_CATEGORIES, MOCK_THREADS } from "@/lib/constants";
 import type { ForumThread } from "@/types";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, MessageSquare } from "lucide-react";
 import Link from "next/link";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"; // AvatarImage removed
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"; 
 import { Textarea } from "@/components/ui/textarea";
-import { useToast } from "@/hooks/use-toast"; // For placeholder button action
+import { useToast } from "@/hooks/use-toast"; 
 
-export default function ForumPostPage({ params }: { params: { categorySlug: string, postId: string } }) {
+export default function ForumPostPage({ params: paramsProp }: { params: { categorySlug: string, postId: string } }) {
+  const params = use(paramsProp); // Unwrap params
   const category = FORUM_CATEGORIES.find(c => c.slug === params.categorySlug);
-  // MOCK_THREADS will be empty, so thread will likely be undefined.
   const thread: ForumThread | undefined = (MOCK_THREADS[params.categorySlug] || []).find(t => t.id === params.postId);
   const { toast } = useToast();
 
-  // Mock comments are local and will be empty
   const mockComments: { id: string, author: string, avatarInitial: string, content: string, date: string }[] = [];
 
   const handlePostReply = () => {
@@ -28,7 +28,7 @@ export default function ForumPostPage({ params }: { params: { categorySlug: stri
     });
   };
 
-  if (!category) { // Added check for category as well
+  if (!category) { 
     return <div className="text-center py-10">Category not found.</div>;
   }
 
@@ -54,7 +54,6 @@ export default function ForumPostPage({ params }: { params: { categorySlug: stri
         <CardHeader className="border-b">
             <div className="flex items-center gap-3">
                 <Avatar>
-                    {/* AvatarImage removed */}
                     <AvatarFallback>{thread.author.charAt(0).toUpperCase()}</AvatarFallback>
                 </Avatar>
                 <div>
@@ -64,7 +63,6 @@ export default function ForumPostPage({ params }: { params: { categorySlug: stri
             </div>
         </CardHeader>
         <CardContent className="py-6">
-          {/* Replaced lorem ipsum with a more appropriate placeholder */}
           <p className="text-lg">This is where the main content of the forum post would be displayed. In a real application, this content would be fetched from a database.</p>
           <p className="mt-4">Further details and discussions related to the topic would follow here.</p>
         </CardContent>
@@ -87,7 +85,6 @@ export default function ForumPostPage({ params }: { params: { categorySlug: stri
             <CardHeader className="pb-2">
               <div className="flex items-center gap-3">
                 <Avatar className="h-8 w-8">
-                    {/* AvatarImage removed */}
                     <AvatarFallback>{comment.avatarInitial.toUpperCase()}</AvatarFallback>
                 </Avatar>
                 <div>

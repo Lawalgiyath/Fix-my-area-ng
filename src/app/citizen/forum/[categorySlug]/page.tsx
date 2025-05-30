@@ -1,5 +1,6 @@
 
-"use client"; // Added "use client" as it uses hooks like useToast
+"use client"; 
+import { use } from 'react'; // Added import
 import { FORUM_CATEGORIES, MOCK_THREADS } from "@/lib/constants";
 import type { ForumThread } from "@/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,11 +8,11 @@ import { Button } from "@/components/ui/button";
 import { MessageSquare, PlusCircle, UserCircle } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
-import { useToast } from "@/hooks/use-toast"; // For placeholder button action
+import { useToast } from "@/hooks/use-toast"; 
 
-export default function ForumCategoryPage({ params }: { params: { categorySlug: string } }) {
+export default function ForumCategoryPage({ params: paramsProp }: { params: { categorySlug: string } }) {
+  const params = use(paramsProp); // Unwrap params
   const category = FORUM_CATEGORIES.find(c => c.slug === params.categorySlug);
-  // MOCK_THREADS will have empty arrays.
   const threads: ForumThread[] = MOCK_THREADS[params.categorySlug] || [];
   const { toast } = useToast();
 
