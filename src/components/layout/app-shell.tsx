@@ -1,7 +1,7 @@
 
 "use client";
 
-import type { NavItem, UserRole } from "@/types";
+import type { NavItem, UserRole, UserProfile } from "@/types";
 import { APP_NAME, USER_MENU_NAV_ITEMS } from "@/lib/constants";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -36,34 +36,39 @@ type AppShellProps = {
   userRole: UserRole;
   navItems: NavItem[];
   children: React.ReactNode;
-  // userName and titlePrefix will be derived from mock user data for now
 };
 
-type MockUser = {
-  firstName: string;
-  lastName: string;
-  gender: 'male' | 'female' | 'other' | string; // Allow string for flexibility if localstorage is malformed
-};
+// Adjusted MockUser to align with UserProfile fields relevant for display
+type MockDisplayUser = Pick<UserProfile, 'firstName' | 'lastName' | 'moniker' | 'gender'>;
 
 export function AppShell({ userRole, navItems, children }: AppShellProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const [currentUser, setCurrentUser] = useState<MockUser | null>(null);
+  const [currentUser, setCurrentUser] = useState<MockDisplayUser | null>(null);
 
   useEffect(() => {
-    // In a real app, user data would come from an auth context/state manager
     if (typeof window !== 'undefined') {
       const storedUser = localStorage.getItem('mockUser');
       if (storedUser) {
         try {
-          setCurrentUser(JSON.parse(storedUser));
+          const parsedUser: MockDisplayUser = JSON.parse(storedUser);
+          setCurrentUser(parsedUser);
         } catch (e) {
           console.error("Failed to parse mock user from localStorage", e);
-          // Fallback to a generic name if parsing fails or no user
-          setCurrentUser({ firstName: userRole === 'citizen' ? 'Citizen' : 'Official', lastName: 'User', gender: 'other' });
+          setCurrentUser({ 
+            firstName: userRole === 'citizen' ? 'Citizen' : 'Official', 
+            lastName: 'User', 
+            moniker: 'User',
+            gender: 'other' 
+          });
         }
       } else {
-         setCurrentUser({ firstName: userRole === 'citizen' ? 'Citizen' : 'Official', lastName: 'User', gender: 'other' });
+         setCurrentUser({ 
+            firstName: userRole === 'citizen' ? 'Citizen' : 'Official', 
+            lastName: 'User', 
+            moniker: 'User',
+            gender: 'other' 
+          });
       }
     }
   }, [userRole]);
@@ -79,7 +84,7 @@ export function AppShell({ userRole, navItems, children }: AppShellProps) {
     ? `${getTitlePrefix(currentUser.gender)} ${currentUser.firstName} ${currentUser.lastName}`.trim()
     : (userRole === 'citizen' ? 'Citizen User' : 'Gov. Official');
   
-  const avatarInitial = currentUser ? (currentUser.firstName ? currentUser.firstName.charAt(0) : 'U') : 'U';
+  const avatarInitial = currentUser ? (currentUser.firstName ? currentUser.firstName.charAt(0) : (currentUser.moniker ? currentUser.moniker.charAt(0) : 'U')) : 'U';
 
 
   const getPageTitle = () => {
@@ -132,7 +137,7 @@ export function AppShell({ userRole, navItems, children }: AppShellProps) {
               <DropdownMenuLabel className="flex flex-col">
                 <span>{userNameDisplay}</span>
                 <span className="text-xs font-normal text-muted-foreground">
-                  {userRole.charAt(0).toUpperCase() + userRole.slice(1)}
+                  {currentUser?.moniker ? `@${currentUser.moniker}` : (userRole.charAt(0).toUpperCase() + userRole.slice(1))}
                 </span>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
@@ -144,7 +149,7 @@ export function AppShell({ userRole, navItems, children }: AppShellProps) {
                        {item.title}
                      </button>
                   ) : (
-                    <Link href={item.href} className="flex items-center">
+                    <Link href={item.href === '#' && currentUser?.moniker ? `/profile/${currentUser.moniker}` : item.href} className="flex items-center">
                       <item.icon className="mr-2 h-4 w-4" />
                       {item.title}
                     </Link>

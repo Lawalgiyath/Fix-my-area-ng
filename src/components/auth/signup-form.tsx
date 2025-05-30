@@ -26,6 +26,7 @@ import { Loader2 } from "lucide-react";
 const signUpFormSchema = z.object({
   firstName: z.string().min(2, { message: "First name must be at least 2 characters." }),
   lastName: z.string().min(2, { message: "Last name must be at least 2 characters." }),
+  moniker: z.string().min(3, { message: "Moniker must be at least 3 characters." }).max(20, { message: "Moniker cannot exceed 20 characters." }),
   email: z.string().email({ message: "Invalid email address." }),
   password: z.string().min(6, { message: "Password must be at least 6 characters." }),
   confirmPassword: z.string().min(6, { message: "Password must be at least 6 characters." }),
@@ -46,6 +47,7 @@ export function SignUpForm() {
     defaultValues: {
       firstName: "",
       lastName: "",
+      moniker: "",
       email: "",
       password: "",
       confirmPassword: "",
@@ -66,6 +68,7 @@ export function SignUpForm() {
         localStorage.setItem('mockUser', JSON.stringify({
           firstName: values.firstName,
           lastName: values.lastName,
+          moniker: values.moniker,
           gender: values.gender,
         }));
       }
@@ -120,6 +123,22 @@ export function SignUpForm() {
                 )}
               />
             </div>
+            <FormField
+              control={form.control}
+              name="moniker"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Moniker (Username)</FormLabel>
+                  <FormControl>
+                    <Input placeholder="e.g., JohnD" {...field} />
+                  </FormControl>
+                  <FormDescription>
+                    This will be your unique identifier on the platform.
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <FormField
               control={form.control}
               name="email"

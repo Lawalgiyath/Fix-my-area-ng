@@ -16,6 +16,7 @@ export type UserProfile = {
   id: string;
   firstName: string;
   lastName:string;
+  moniker: string; // Added moniker
   email: string;
   role: UserRole;
   gender?: 'male' | 'female' | 'other';
@@ -69,3 +70,4 @@ export type LanguageOption = {
   name: string;
   samplePhrases: { title: string; phrase: string }[];
 };
+
