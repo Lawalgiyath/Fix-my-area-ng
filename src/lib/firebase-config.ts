@@ -1,11 +1,19 @@
 
 // src/lib/firebase-config.ts
 import { initializeApp, getApps, type FirebaseApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
-// import { getAuth } from "firebase/auth"; // Uncomment if you use Firebase Auth
-// import { getStorage } from "firebase/storage"; // Uncomment if you use Firebase Storage
+import { getFirestore, type Firestore } from "firebase/firestore"; // Ensure Firestore type is imported
 
-const firebaseConfig = {
+// Define the structure of your firebase config for type safety
+interface FirebaseConfig {
+  apiKey?: string;
+  authDomain?: string;
+  projectId?: string;
+  storageBucket?: string;
+  messagingSenderId?: string;
+  appId?: string;
+}
+
+const firebaseConfigValues: FirebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
   projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
@@ -14,16 +22,27 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-// Initialize Firebase
+// Check for missing essential Firebase configuration variables
+const essentialConfigKeys: (keyof FirebaseConfig)[] = ['apiKey', 'projectId', 'authDomain'];
+const missingKeys = essentialConfigKeys.filter(key => !firebaseConfigValues[key]);
+
+if (missingKeys.length > 0) {
+  const errorMessage = `Firebase configuration error: Missing essential environment variables: ${missingKeys.join(', ')}. Please ensure they are set in your .env.local file and the server is restarted.`;
+  console.error(errorMessage);
+  // Throwing an error here will stop initialization and make the problem clear.
+  // This error should be caught by server actions or result in a Next.js error page.
+  throw new Error(errorMessage);
+}
+
 let app: FirebaseApp;
+let db: Firestore; // Use Firestore type
+
 if (!getApps().length) {
-  app = initializeApp(firebaseConfig);
+  app = initializeApp(firebaseConfigValues as Required<FirebaseConfig>); // Cast because we checked essential keys
 } else {
   app = getApps()[0];
 }
 
-const db = getFirestore(app);
-// const auth = getAuth(app); // Uncomment if you use Firebase Auth
-// const storage = getStorage(app); // Uncomment if you use Firebase Storage
+db = getFirestore(app);
 
-export { app, db /*, auth, storage */ };
+export { app, db };
