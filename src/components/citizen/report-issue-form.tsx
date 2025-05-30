@@ -18,7 +18,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useState } from "react";
-import { categorizeIssue, CategorizeIssueOutput } from "@/ai/flows/categorize-issue";
+import { categorizeIssue, type CategorizeIssueOutput } from "@/ai/flows/categorize-issue";
+import { saveIssueReport } from "@/actions/issue-actions"; // Import the server action
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { CheckCircle, Info, Loader2, MapPin, UploadCloud } from "lucide-react";
@@ -29,12 +30,13 @@ const reportIssueSchema = z.object({
   title: z.string().min(5, { message: "Title must be at least 5 characters." }).max(100),
   description: z.string().min(20, { message: "Description must be at least 20 characters." }).max(1000),
   location: z.string().min(5, { message: "Location description must be at least 5 characters." }).max(200),
-  categoryManual: z.string().optional(), // Optional manual category selection
-  media: z.custom<FileList>().optional(), // Placeholder for file upload, RHF will store FileList
+  categoryManual: z.string().optional(),
+  media: z.custom<FileList>().optional().nullable(),
 });
 
 export function ReportIssueForm() {
-  const [isLoading, setIsLoading] = useState(false);
+  const [isProcessingAi, setIsProcessingAi] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [aiResult, setAiResult] = useState<CategorizeIssueOutput | null>(null);
   const [submissionSuccess, setSubmissionSuccess] = useState(false);
   const { toast } = useToast();
@@ -46,58 +48,83 @@ export function ReportIssueForm() {
       description: "",
       location: "",
       categoryManual: undefined,
-      media: undefined,
+      media: null,
     },
   });
 
   async function onSubmit(values: z.infer<typeof reportIssueSchema>) {
-    setIsLoading(true);
+    setIsProcessingAi(true);
+    setIsSubmitting(false); // Reset submission state
     setAiResult(null);
     setSubmissionSuccess(false);
+    let currentAiResult: CategorizeIssueOutput | null = null;
 
     try {
+      toast({ title: "Processing", description: "Categorizing your issue with AI..." });
       const classification = await categorizeIssue({ reportContent: values.description });
       setAiResult(classification);
+      currentAiResult = classification; // Store for submission
+      setIsProcessingAi(false); // AI processing done
 
-      // Simulate form submission to backend
-      // In a real app, you would handle file uploads here, e.g., values.media
-      console.log("Form values submitted:", values);
-      if (values.media && values.media.length > 0) {
-        console.log("Files to upload:", values.media);
+      // Now attempt to save the report to backend
+      setIsSubmitting(true);
+      toast({ title: "Submitting Report", description: "Saving your report to the database..."});
+
+      // TODO: Actual file upload logic would go here.
+      // For now, we are not uploading files, just their names if selected.
+      // const mediaFiles = values.media;
+      // if (mediaFiles && mediaFiles.length > 0) {
+      //   console.log("Files selected for upload:", Array.from(mediaFiles).map(f => f.name));
+      //   // In a real app, upload files to Firebase Storage or similar and get URLs.
+      //   // Then pass those URLs to saveIssueReport.
+      // }
+
+
+      const submissionResult = await saveIssueReport(values, currentAiResult);
+
+      if (submissionResult.success) {
+        setSubmissionSuccess(true);
+        toast({
+          title: "Issue Reported Successfully!",
+          description: (
+            <div>
+              <p>Your report "{values.title}" has been submitted with ID: {submissionResult.issueId}.</p>
+              {currentAiResult && (
+                 <p className="mt-1">AI Category: <strong>{currentAiResult.category}</strong> (Confidence: {(currentAiResult.confidence * 100).toFixed(0)}%)</p>
+              )}
+            </div>
+          ),
+          variant: "default",
+          className: "bg-green-50 border-green-200 text-green-700"
+        });
+        form.reset();
+        setAiResult(null); // Clear AI result after successful submission and reset
+      } else {
+        throw new Error(submissionResult.error || "Failed to save report to database.");
       }
-      await new Promise(resolve => setTimeout(resolve, 1000)); 
 
-      setSubmissionSuccess(true);
-      toast({
-        title: "Issue Reported Successfully!",
-        description: (
-          <div>
-            <p>Your report "{values.title}" has been submitted.</p>
-            <p className="mt-1">AI Category: <strong>{classification.category}</strong> (Confidence: {(classification.confidence * 100).toFixed(0)}%)</p>
-          </div>
-        ),
-        variant: "default",
-        className: "bg-green-50 border-green-200 text-green-700"
-      });
-      form.reset();
     } catch (error) {
-      console.error("Error reporting issue or categorizing:", error);
+      console.error("Error reporting issue:", error);
+      const errorMessage = error instanceof Error ? error.message : "Could not submit or categorize the issue. Please try again.";
       toast({
         title: "Error",
-        description: "Could not submit or categorize the issue. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
-      setIsLoading(false);
+      setIsProcessingAi(false);
+      setIsSubmitting(false);
     }
   }
+
+  const isLoading = isProcessingAi || isSubmitting;
 
   return (
     <Card className="w-full max-w-2xl mx-auto shadow-xl">
       <CardHeader>
         <CardTitle className="text-2xl font-bold text-primary">Report a New Issue</CardTitle>
         <CardDescription>
-          Help us improve our community by reporting infrastructure or service problems. 
+          Help us improve our community by reporting infrastructure or service problems.
           Provide as much detail as possible.
         </CardDescription>
       </CardHeader>
@@ -111,7 +138,7 @@ export function ReportIssueForm() {
                 <FormItem>
                   <FormLabel>Issue Title</FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g., Broken streetlight on Elm Street" {...field} />
+                    <Input placeholder="e.g., Broken streetlight on Elm Street" {...field} disabled={isLoading || submissionSuccess} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -128,6 +155,7 @@ export function ReportIssueForm() {
                       placeholder="Describe the issue in detail. What happened? When did you notice it? What is the impact?"
                       className="min-h-[120px]"
                       {...field}
+                      disabled={isLoading || submissionSuccess}
                     />
                   </FormControl>
                   <FormMessage />
@@ -143,11 +171,10 @@ export function ReportIssueForm() {
                     <MapPin className="mr-2 h-4 w-4 text-muted-foreground" /> Location Description
                   </FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g., Corner of Elm Street and Oak Avenue, opposite the bakery" {...field} />
+                    <Input placeholder="e.g., Corner of Elm Street and Oak Avenue, opposite the bakery" {...field} disabled={isLoading || submissionSuccess}/>
                   </FormControl>
                   <FormDescription>
                     Provide a clear textual description of the location. You can also use nearby landmarks.
-                    (Map pin-drop functionality coming soon!)
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -159,7 +186,7 @@ export function ReportIssueForm() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Category (Optional)</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoading || submissionSuccess}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select a category if AI misses" />
@@ -176,14 +203,14 @@ export function ReportIssueForm() {
                       ))}
                       <SelectItem value="Other">
                           <div className="flex items-center">
-                            <Info className="mr-2 h-4 w-4 text-muted-foreground" /> 
+                            <Info className="mr-2 h-4 w-4 text-muted-foreground" />
                             Other
                           </div>
                         </SelectItem>
                     </SelectContent>
                   </Select>
                   <FormDescription>
-                    Optionally select a category. Our AI will attempt to categorize it automatically based on your description.
+                    Optionally select a category. Our AI will attempt to categorize it automatically.
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -201,16 +228,19 @@ export function ReportIssueForm() {
                     <Input
                       type="file"
                       accept="image/*,video/*"
+                      multiple // Allow multiple files if backend can handle it
                       name={name}
                       onBlur={onBlur}
                       onChange={(e) => {
                         const files = e.target.files;
-                        onChange(files && files.length > 0 ? files : undefined);
+                        onChange(files && files.length > 0 ? files : null);
                       }}
                       ref={ref}
+                      disabled={isLoading || submissionSuccess}
+                      // Do not pass `value` for file inputs to avoid controlled/uncontrolled issues
                     />
                   </FormControl>
-                  <FormDescription>Upload relevant photos or short videos (max 5MB). (File upload functionality is currently a placeholder)</FormDescription>
+                  <FormDescription>Upload relevant photos or short videos. (Actual upload processing not yet implemented)</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -234,7 +264,7 @@ export function ReportIssueForm() {
                     <AlertTitle>Report Submitted!</AlertTitle>
                     <AlertDescription>
                     Thank you for your report. It has been successfully submitted.
-                    {aiResult && (
+                    {aiResult && ( // Use the aiResult captured at the time of submission
                         <p className="mt-1">Final AI Category: <strong>{aiResult.category}</strong> (Confidence: {(aiResult.confidence * 100).toFixed(0)}%)</p>
                     )}
                     </AlertDescription>
@@ -245,7 +275,7 @@ export function ReportIssueForm() {
           <CardFooter>
             <Button type="submit" className="w-full" disabled={isLoading || submissionSuccess}>
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {submissionSuccess ? "Report Submitted" : "Submit Report"}
+              {submissionSuccess ? "Report Another Issue" : (isProcessingAi ? "Processing AI..." : (isSubmitting ? "Submitting..." : "Submit Report"))}
             </Button>
           </CardFooter>
         </form>
@@ -253,4 +283,3 @@ export function ReportIssueForm() {
     </Card>
   );
 }
-

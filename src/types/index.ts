@@ -1,5 +1,6 @@
 
 import type { LucideIcon } from 'lucide-react';
+import type { Timestamp } from 'firebase/firestore'; // Import Timestamp
 
 export type NavItem = {
   title: string;
@@ -16,27 +17,30 @@ export type UserProfile = {
   id: string;
   firstName: string;
   lastName:string;
-  moniker: string; // Added moniker
+  moniker: string;
   email: string;
   role: UserRole;
   gender?: 'male' | 'female' | 'other';
-  title?: 'Mr.' | 'Mrs.' | ''; // For salutation
+  title?: 'Mr.' | 'Mrs.' | '';
 };
 
 export type Issue = {
-  id: string;
+  id: string; // Document ID from Firestore
   title: string;
   description: string;
-  category: string;
+  category: string; // This could be the manually selected one or AI suggested
   status: "Submitted" | "In Progress" | "Resolved" | "Rejected";
-  dateReported: string;
+  dateReported: string; // Client-side date string when report was initiated
   location: string;
-  media?: string[]; // URLs to media files
-  reporter?: string; // Citizen ID or name
+  mediaUrls?: string[]; // URLs to media files (after upload)
   aiClassification?: {
     category: string;
     confidence: number;
   };
+  reportedById: string; // ID of the user who reported (e.g., Firebase Auth UID)
+  createdAt: Timestamp | Date; // Firestore server timestamp (or Date if converted)
+  // Optional: store manual category if different from AI one or primary one
+  categoryManual?: string;
 };
 
 export type ForumCategory = {
@@ -59,10 +63,10 @@ export type EducationalContent = {
   id: string;
   title: string;
   summary: string;
-  fullContent?: string; // Added for detailed write-ups
+  fullContent?: string;
   icon: LucideIcon;
-  imageUrl?: string;
-  dataAiHint?: string;
+  // imageUrl?: string; // Removed
+  // dataAiHint?: string; // Removed
 };
 
 export type LanguageOption = {
@@ -70,4 +74,3 @@ export type LanguageOption = {
   name: string;
   samplePhrases: { title: string; phrase: string }[];
 };
-
