@@ -22,7 +22,7 @@ import {
   Info
 } from 'lucide-react';
 
-export const APP_NAME = "CivicConnect NG";
+export const APP_NAME = "Fix My Area NG";
 
 export const CITIZEN_NAV_ITEMS: NavItem[] = [
   { title: 'Dashboard', href: '/citizen/dashboard', icon: LayoutDashboard, matchStartsWith: true },
