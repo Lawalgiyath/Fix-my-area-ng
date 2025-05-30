@@ -1,26 +1,40 @@
 
+"use client"; // Added "use client" as it uses hooks like useToast
 import { FORUM_CATEGORIES, MOCK_THREADS } from "@/lib/constants";
 import type { ForumThread } from "@/types";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, MessageSquare, UserCircle } from "lucide-react";
+import { ArrowLeft, MessageSquare } from "lucide-react";
 import Link from "next/link";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"; // AvatarImage removed
 import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast"; // For placeholder button action
 
 export default function ForumPostPage({ params }: { params: { categorySlug: string, postId: string } }) {
   const category = FORUM_CATEGORIES.find(c => c.slug === params.categorySlug);
+  // MOCK_THREADS will be empty, so thread will likely be undefined.
   const thread: ForumThread | undefined = (MOCK_THREADS[params.categorySlug] || []).find(t => t.id === params.postId);
+  const { toast } = useToast();
 
-  if (!category || !thread) {
-    return <div className="text-center py-10">Thread not found.</div>;
+  // Mock comments are local and will be empty
+  const mockComments: { id: string, author: string, avatarInitial: string, content: string, date: string }[] = [];
+
+  const handlePostReply = () => {
+    toast({
+      title: "Demo Action",
+      description: "Posting replies is not fully implemented in this prototype.",
+      variant: "default",
+      className: "bg-blue-50 border-blue-200 text-blue-700"
+    });
+  };
+
+  if (!category) { // Added check for category as well
+    return <div className="text-center py-10">Category not found.</div>;
   }
 
-  const mockComments = [
-    { id: 'c1', author: 'User123', avatarInitial: 'U', content: 'This is a great point! I totally agree.', date: '2 hours ago' },
-    { id: 'c2', author: thread.author, avatarInitial: thread.author.charAt(0), content: 'Thanks for the feedback! Glad you found it useful.', date: '1 hour ago' },
-    { id: 'c3', author: 'AnotherUser', avatarInitial: 'A', content: 'I have a slightly different perspective on this...', date: '30 minutes ago' },
-  ];
+  if (!thread) {
+    return <div className="text-center py-10">Thread not found or no threads available in this category.</div>;
+  }
 
 
   return (
@@ -40,7 +54,7 @@ export default function ForumPostPage({ params }: { params: { categorySlug: stri
         <CardHeader className="border-b">
             <div className="flex items-center gap-3">
                 <Avatar>
-                    <AvatarImage src={`https://placehold.co/40x40.png?text=${thread.author.charAt(0)}`} alt={thread.author} data-ai-hint="user avatar"/>
+                    {/* AvatarImage removed */}
                     <AvatarFallback>{thread.author.charAt(0).toUpperCase()}</AvatarFallback>
                 </Avatar>
                 <div>
@@ -50,22 +64,30 @@ export default function ForumPostPage({ params }: { params: { categorySlug: stri
             </div>
         </CardHeader>
         <CardContent className="py-6">
-          <p className="text-lg">This is the main content of the forum post. This example post discusses the importance of community involvement in local governance. Active participation can lead to better resource allocation and more responsive services.</p>
-          <p className="mt-4">Further discussion could explore specific ways community members can get involved, such as attending town hall meetings, joining local committees, or using platforms like CivicConnect NG to voice concerns and propose solutions. Collaboration between citizens and officials is key to progress.</p>
+          {/* Replaced lorem ipsum with a more appropriate placeholder */}
+          <p className="text-lg">This is where the main content of the forum post would be displayed. In a real application, this content would be fetched from a database.</p>
+          <p className="mt-4">Further details and discussions related to the topic would follow here.</p>
         </CardContent>
         <CardFooter className="text-xs text-muted-foreground border-t pt-4">
-          Posted on: {new Date().toLocaleDateString()} (Mock Date)
+          Posted on: {new Date().toLocaleDateString()} (Mock Date, as content is static)
         </CardFooter>
       </Card>
       
       <h2 className="text-2xl font-semibold text-primary border-b pb-2">Replies ({mockComments.length})</h2>
       <div className="space-y-4">
+        {mockComments.length === 0 && (
+          <Card>
+            <CardContent className="py-6 text-center text-muted-foreground">
+              No replies yet for this discussion.
+            </CardContent>
+          </Card>
+        )}
         {mockComments.map(comment => (
           <Card key={comment.id} className="shadow-sm">
             <CardHeader className="pb-2">
               <div className="flex items-center gap-3">
                 <Avatar className="h-8 w-8">
-                    <AvatarImage src={`https://placehold.co/40x40.png?text=${comment.avatarInitial}`} alt={comment.author} data-ai-hint="user avatar"/>
+                    {/* AvatarImage removed */}
                     <AvatarFallback>{comment.avatarInitial.toUpperCase()}</AvatarFallback>
                 </Avatar>
                 <div>
@@ -89,7 +111,7 @@ export default function ForumPostPage({ params }: { params: { categorySlug: stri
             <Textarea placeholder="Write your comment here..." className="min-h-[100px]" />
         </CardContent>
         <CardFooter>
-            <Button className="bg-primary hover:bg-primary/90">
+            <Button className="bg-primary hover:bg-primary/90" onClick={handlePostReply}>
                 <MessageSquare className="mr-2 h-4 w-4" /> Post Reply
             </Button>
         </CardFooter>
@@ -98,4 +120,3 @@ export default function ForumPostPage({ params }: { params: { categorySlug: stri
     </div>
   );
 }
-

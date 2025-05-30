@@ -1,17 +1,18 @@
 
-// src/app/citizen/my-reports/[issueId]/page.tsx
 "use client";
 
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { MOCK_ISSUES } from '@/lib/constants';
+import { MOCK_ISSUES } from '@/lib/constants'; // Will be empty array now
 import type { Issue } from '@/types';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { AlertCircle, CheckCircle, Clock, MapPin, Tag, MessageSquare, ArrowLeft, User, CalendarDays } from 'lucide-react';
+import { AlertCircle, CheckCircle, Clock, MapPin, Tag, MessageSquare, ArrowLeft, User, CalendarDays, Info } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
-import Image from 'next/image';
+// Image import removed
+import { useToast } from "@/hooks/use-toast";
+
 
 const statusConfig: Record<Issue["status"], { icon: React.ElementType; badgeClass: string; textClass: string }> = {
   Submitted: { icon: AlertCircle, badgeClass: "border-blue-500 bg-blue-50 text-blue-700", textClass: "text-blue-700" },
@@ -20,16 +21,23 @@ const statusConfig: Record<Issue["status"], { icon: React.ElementType; badgeClas
   Rejected: { icon: AlertCircle, badgeClass: "border-red-500 bg-red-50 text-red-700", textClass: "text-red-700" },
 };
 
-// Mock comments - in a real app, these would be fetched
-const MOCK_COMMENTS = [
-    { id: 'c1', author: 'Official Gov', text: 'Thank you for your report. We are looking into this issue.', date: '2024-07-29', userType: 'official' as const },
-    { id: 'c2', author: 'Citizen A', text: 'Any updates on this? It\'s been a few days.', date: '2024-08-01', userType: 'citizen' as const },
-];
+// Mock comments are local to this page for now
+const MOCK_COMMENTS: {id: string; author: string; text: string; date: string; userType: 'official' | 'citizen'}[] = []; // Emptied comments
 
 export default function IssueDetailPage() {
   const params = useParams();
   const issueId = params.issueId as string;
   const issue = MOCK_ISSUES.find((iss) => iss.id === issueId);
+  const { toast } = useToast();
+
+  const handlePostComment = () => {
+    toast({
+      title: "Demo Action",
+      description: "Posting comments is not fully implemented in this prototype.",
+      variant: "default",
+      className: "bg-blue-50 border-blue-200 text-blue-700"
+    });
+  };
 
   if (!issue) {
     return (
@@ -101,23 +109,16 @@ export default function IssueDetailPage() {
             </div>
           )}
 
-          {/* Placeholder for media like images/videos */}
-          {issue.media && issue.media.length > 0 && (
-            <div>
+          {/* Media section removed as images are removed */}
+          {(!issue.media || issue.media.length === 0) && (
+             <div>
               <h3 className="text-lg font-semibold mb-2 text-primary">Attached Media</h3>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                {issue.media.map((mediaUrl, index) => (
-                  <div key={index} className="relative aspect-square rounded-md overflow-hidden border">
-                    <Image src={mediaUrl} alt={`Attached media ${index + 1}`} layout="fill" objectFit="cover" data-ai-hint="issue evidence" />
-                  </div>
-                ))}
-              </div>
+               <p className="text-sm text-muted-foreground">No media was attached to this report.</p>
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* Comments Section Placeholder */}
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle className="text-xl flex items-center text-primary">
@@ -125,6 +126,7 @@ export default function IssueDetailPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {MOCK_COMMENTS.length === 0 && <p className="text-sm text-muted-foreground">No comments or updates yet for this issue.</p>}
           {MOCK_COMMENTS.map(comment => (
             <div key={comment.id} className={`p-4 rounded-lg border ${comment.userType === 'official' ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-200'}`}>
               <div className="flex justify-between items-center mb-1">
@@ -134,13 +136,11 @@ export default function IssueDetailPage() {
               <p className="text-sm text-foreground/90">{comment.text}</p>
             </div>
           ))}
-          {MOCK_COMMENTS.length === 0 && <p className="text-sm text-muted-foreground">No comments or updates yet.</p>}
         </CardContent>
         <CardFooter className="border-t pt-4">
           <div className="w-full space-y-2">
             <Textarea placeholder="Type your comment or update here..." className="min-h-[80px]" />
-            <Button className="bg-primary hover:bg-primary/80">Post Comment</Button>
-            <p className="text-xs text-muted-foreground">This is a placeholder. Comments are not saved yet.</p>
+            <Button className="bg-primary hover:bg-primary/80" onClick={handlePostComment}>Post Comment</Button>
           </div>
         </CardFooter>
       </Card>

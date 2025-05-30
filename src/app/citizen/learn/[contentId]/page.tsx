@@ -3,9 +3,9 @@
 
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import Image from 'next/image';
+// Image import removed
 import { EDUCATIONAL_CONTENT } from '@/lib/constants';
-import type { EducationalContent as EducationalContentType } from '@/types';
+// EducationalContentType import removed as it's not strictly needed if EDUCATIONAL_CONTENT is typed
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, AlertCircle } from 'lucide-react';
@@ -40,19 +40,8 @@ export default function EducationalContentPage() {
       </Link>
 
       <Card className="shadow-xl overflow-hidden">
-        {contentItem.imageUrl && (
-          <div className="relative w-full h-60 md:h-80">
-            <Image 
-              src={contentItem.imageUrl} 
-              alt={contentItem.title} 
-              fill
-              style={{objectFit: 'cover'}}
-              data-ai-hint={contentItem.dataAiHint || "education detail"}
-              priority // Prioritize loading for LCP
-            />
-          </div>
-        )}
-        <CardHeader className="border-b">
+        {/* Image div removed */}
+        <CardHeader className="border-b pt-6"> {/* Adjusted padding since image is removed */}
           <div className="flex items-center gap-3 mb-2">
             <div className="p-3 bg-primary/10 rounded-full">
               <Icon className="h-8 w-8 text-primary" />
@@ -67,8 +56,6 @@ export default function EducationalContentPage() {
         </CardHeader>
         <CardContent className="py-6">
           {contentItem.fullContent ? (
-            // Using dangerouslySetInnerHTML for simple HTML from constants for now. 
-            // For user-generated content or complex HTML, use a proper Markdown parser/renderer.
             <article 
               className="prose prose-sm sm:prose lg:prose-lg xl:prose-xl max-w-none dark:prose-invert" 
               dangerouslySetInnerHTML={{ __html: contentItem.fullContent.replace(/\n/g, '<br />') }} 

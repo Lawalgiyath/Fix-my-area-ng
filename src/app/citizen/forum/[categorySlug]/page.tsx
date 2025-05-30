@@ -1,3 +1,5 @@
+
+"use client"; // Added "use client" as it uses hooks like useToast
 import { FORUM_CATEGORIES, MOCK_THREADS } from "@/lib/constants";
 import type { ForumThread } from "@/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -5,16 +7,28 @@ import { Button } from "@/components/ui/button";
 import { MessageSquare, PlusCircle, UserCircle } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast"; // For placeholder button action
 
 export default function ForumCategoryPage({ params }: { params: { categorySlug: string } }) {
   const category = FORUM_CATEGORIES.find(c => c.slug === params.categorySlug);
+  // MOCK_THREADS will have empty arrays.
   const threads: ForumThread[] = MOCK_THREADS[params.categorySlug] || [];
+  const { toast } = useToast();
 
   if (!category) {
     return <div className="text-center py-10">Category not found.</div>;
   }
 
   const CategoryIcon = category.icon;
+
+  const handleStartDiscussion = () => {
+    toast({
+      title: "Demo Action",
+      description: "Starting a new discussion is not fully implemented in this prototype.",
+      variant: "default",
+      className: "bg-blue-50 border-blue-200 text-blue-700"
+    });
+  };
 
   return (
     <div className="space-y-6">
@@ -26,7 +40,7 @@ export default function ForumCategoryPage({ params }: { params: { categorySlug: 
             <p className="text-muted-foreground mt-1">{category.description}</p>
           </div>
         </div>
-        <Button className="bg-primary hover:bg-primary/90">
+        <Button className="bg-primary hover:bg-primary/90" onClick={handleStartDiscussion}>
           <PlusCircle className="mr-2 h-5 w-5" /> Start New Discussion
         </Button>
       </header>

@@ -5,7 +5,7 @@ import type { NavItem, UserRole, UserProfile } from "@/types";
 import { APP_NAME, USER_MENU_NAV_ITEMS } from "@/lib/constants";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"; // AvatarImage removed
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -29,7 +29,7 @@ import {
   SidebarRail,
 } from "@/components/ui/sidebar";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { LogOut, Menu, ChevronDown } from "lucide-react";
+import { LogOut, ChevronDown } from "lucide-react"; // Menu icon removed as SidebarTrigger has PanelLeft
 import React, { useEffect, useState } from "react";
 
 type AppShellProps = {
@@ -38,7 +38,6 @@ type AppShellProps = {
   children: React.ReactNode;
 };
 
-// Adjusted MockUser to align with UserProfile fields relevant for display
 type MockDisplayUser = Pick<UserProfile, 'firstName' | 'lastName' | 'moniker' | 'gender'>;
 
 export function AppShell({ userRole, navItems, children }: AppShellProps) {
@@ -90,9 +89,14 @@ export function AppShell({ userRole, navItems, children }: AppShellProps) {
   const getPageTitle = () => {
     const currentNavItem = navItems.find(item => pathname === item.href || (item.matchStartsWith && pathname.startsWith(item.href)));
     if (currentNavItem) return currentNavItem.title;
-    if (pathname.includes('/forum/')) return "Forum Discussion";
-    if (pathname.includes('/my-reports/')) return "Issue Details";
-    if (pathname.includes('/learn/')) return "Educational Content";
+    if (pathname.includes('/forum/') && !pathname.endsWith('/forum')) {
+      if (MOCK_THREADS[pathname.split('/')[3]]?.find(t => t.id === pathname.split('/')[4])) {
+         return "Forum Discussion";
+      }
+      return "Forum Category";
+    }
+    if (pathname.includes('/my-reports/') && MOCK_ISSUES.find(i=> i.id === pathname.split('/').pop())) return "Issue Details";
+    if (pathname.includes('/learn/') && EDUCATIONAL_CONTENT.find(c => c.id === pathname.split('/').pop())) return "Educational Content";
     return APP_NAME;
   };
 
@@ -105,7 +109,7 @@ export function AppShell({ userRole, navItems, children }: AppShellProps) {
   
   const UserAvatar = () => (
     <Avatar className="h-9 w-9">
-      <AvatarImage src={`https://placehold.co/100x100.png?text=${avatarInitial}`} alt={userNameDisplay} data-ai-hint="user avatar" />
+      {/* AvatarImage removed, relying on Fallback */}
       <AvatarFallback>{avatarInitial.toUpperCase()}</AvatarFallback>
     </Avatar>
   );
@@ -143,7 +147,7 @@ export function AppShell({ userRole, navItems, children }: AppShellProps) {
               <DropdownMenuSeparator />
               {USER_MENU_NAV_ITEMS.map((item) => (
                 <DropdownMenuItem key={item.title} asChild className="cursor-pointer">
-                  {item.href === '/' ? ( // Check for logout specifically
+                  {item.href === '/' ? ( 
                      <button onClick={handleLogout} className="w-full text-left flex items-center">
                        <item.icon className="mr-2 h-4 w-4" />
                        {item.title}
@@ -167,14 +171,16 @@ export function AppShell({ userRole, navItems, children }: AppShellProps) {
   );
 }
 
+// Mock data imports for getPageTitle (will be empty now but structure is for logic)
+import { MOCK_THREADS, MOCK_ISSUES, EDUCATIONAL_CONTENT } from "@/lib/constants";
 
-// Helper component HSN (Headless Sidebar Navigation)
+
 const SidebarHSN = ({ navItems, userRole, userName, avatarInitial, onLogout, pageTitle }: { navItems: NavItem[], userRole: string, userName: string, avatarInitial: string, onLogout: () => void, pageTitle: string }) => {
   const pathname = usePathname();
   
   const UserAvatar = () => (
     <Avatar className="h-8 w-8">
-      <AvatarImage src={`https://placehold.co/100x100.png?text=${avatarInitial}`} alt={userName} data-ai-hint="user avatar" />
+      {/* AvatarImage removed */}
       <AvatarFallback>{avatarInitial.toUpperCase()}</AvatarFallback>
     </Avatar>
   );
@@ -190,9 +196,8 @@ const SidebarHSN = ({ navItems, userRole, userName, avatarInitial, onLogout, pag
             </Link>
             <SidebarTrigger className="hidden md:flex group-data-[collapsible=icon]:hidden" />
         </div>
-         {/* Mobile header inside sidebar drawer */}
         <div className="my-2 flex items-center justify-between border-b pb-2 md:hidden">
-            <h1 className="text-lg font-semibold">{pageTitle}</h1> {/* Use dynamic page title */}
+            <h1 className="text-lg font-semibold">{pageTitle}</h1>
             <SidebarTrigger />
         </div>
         <div className="flex items-center gap-2 border-b pb-2 pt-1 md:hidden">
@@ -224,7 +229,6 @@ const SidebarHSN = ({ navItems, userRole, userName, avatarInitial, onLogout, pag
         </SidebarContent>
       </ScrollArea>
       <SidebarFooter className="p-2 border-t">
-         {/* Desktop footer: logout button */}
         <div className="hidden md:block">
           <SidebarMenu>
             <SidebarMenuItem>
@@ -235,7 +239,6 @@ const SidebarHSN = ({ navItems, userRole, userName, avatarInitial, onLogout, pag
             </SidebarMenuItem>
           </SidebarMenu>
         </div>
-         {/* Mobile footer: logout button */}
         <div className="md:hidden">
           <Button variant="ghost" className="w-full justify-start gap-2" onClick={onLogout}>
             <LogOut className="h-4 w-4" /> Logout
