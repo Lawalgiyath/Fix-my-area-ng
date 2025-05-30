@@ -22,6 +22,14 @@ const firebaseConfigValues: FirebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
+// --- Debugging Logs ---
+console.log("--- Firebase Config Debug ---");
+console.log("Server sees NEXT_PUBLIC_FIREBASE_API_KEY:", process.env.NEXT_PUBLIC_FIREBASE_API_KEY);
+console.log("Server sees NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN:", process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN);
+console.log("Server sees NEXT_PUBLIC_FIREBASE_PROJECT_ID:", process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID);
+console.log("-----------------------------");
+// --- End Debugging Logs ---
+
 // Check for missing essential Firebase configuration variables
 const essentialConfigKeys: (keyof FirebaseConfig)[] = ['apiKey', 'projectId', 'authDomain'];
 const missingKeys = essentialConfigKeys.filter(key => !firebaseConfigValues[key]);
