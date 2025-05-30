@@ -1,3 +1,4 @@
+
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -29,7 +30,7 @@ const reportIssueSchema = z.object({
   description: z.string().min(20, { message: "Description must be at least 20 characters." }).max(1000),
   location: z.string().min(5, { message: "Location description must be at least 5 characters." }).max(200),
   categoryManual: z.string().optional(), // Optional manual category selection
-  media: z.any().optional(), // Placeholder for file upload
+  media: z.custom<FileList>().optional(), // Placeholder for file upload, RHF will store FileList
 });
 
 export function ReportIssueForm() {
@@ -44,6 +45,7 @@ export function ReportIssueForm() {
       title: "",
       description: "",
       location: "",
+      categoryManual: undefined,
       media: undefined,
     },
   });
@@ -58,6 +60,11 @@ export function ReportIssueForm() {
       setAiResult(classification);
 
       // Simulate form submission to backend
+      // In a real app, you would handle file uploads here, e.g., values.media
+      console.log("Form values submitted:", values);
+      if (values.media && values.media.length > 0) {
+        console.log("Files to upload:", values.media);
+      }
       await new Promise(resolve => setTimeout(resolve, 1000)); 
 
       setSubmissionSuccess(true);
@@ -167,6 +174,12 @@ export function ReportIssueForm() {
                           </div>
                         </SelectItem>
                       ))}
+                      <SelectItem value="Other">
+                          <div className="flex items-center">
+                            <Info className="mr-2 h-4 w-4 text-muted-foreground" /> 
+                            Other
+                          </div>
+                        </SelectItem>
                     </SelectContent>
                   </Select>
                   <FormDescription>
@@ -179,13 +192,23 @@ export function ReportIssueForm() {
             <FormField
               control={form.control}
               name="media"
-              render={({ field }) => (
+              render={({ field: { onChange, onBlur, name, ref } }) => (
                 <FormItem>
                   <FormLabel className="flex items-center">
                      <UploadCloud className="mr-2 h-4 w-4 text-muted-foreground" /> Attach Media (Optional)
                   </FormLabel>
                   <FormControl>
-                    <Input type="file" accept="image/*,video/*" {...field} />
+                    <Input
+                      type="file"
+                      accept="image/*,video/*"
+                      name={name}
+                      onBlur={onBlur}
+                      onChange={(e) => {
+                        const files = e.target.files;
+                        onChange(files && files.length > 0 ? files : undefined);
+                      }}
+                      ref={ref}
+                    />
                   </FormControl>
                   <FormDescription>Upload relevant photos or short videos (max 5MB). (File upload functionality is currently a placeholder)</FormDescription>
                   <FormMessage />
@@ -194,7 +217,7 @@ export function ReportIssueForm() {
             />
 
             {aiResult && !submissionSuccess && (
-              <Alert variant={aiResult.confidence > 0.7 ? "default" : "destructive"} className={aiResult.confidence > 0.7 ? "bg-blue-50 border-blue-200" : "bg-orange-50 border-orange-200"}>
+              <Alert variant={aiResult.confidence > 0.7 ? "default" : "destructive"} className={aiResult.confidence > 0.7 ? "bg-blue-50 border-blue-200 text-blue-700" : "bg-orange-50 border-orange-200 text-orange-700"}>
                 <Info className="h-4 w-4" />
                 <AlertTitle>AI Categorization Suggestion</AlertTitle>
                 <AlertDescription>
@@ -230,3 +253,4 @@ export function ReportIssueForm() {
     </Card>
   );
 }
+
