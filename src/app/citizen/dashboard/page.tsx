@@ -1,15 +1,19 @@
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { FilePlus2, ListChecks, MessagesSquare, CheckCircle, AlertTriangle, Clock } from "lucide-react";
+import { FilePlus2, ListChecks, MessagesSquare, CheckCircle, AlertTriangle, Clock, Info } from "lucide-react";
 import Link from "next/link";
 
 export default function CitizenDashboardPage() {
+  // Values should ideally be fetched from a backend.
   const summaryStats = [
-    { title: "Total Reports", value: 5, icon: ListChecks, color: "text-primary" },
-    { title: "Pending Review", value: 2, icon: Clock, color: "text-yellow-500" },
-    { title: "Resolved Issues", value: 3, icon: CheckCircle, color: "text-green-500" },
+    { title: "Total Reports", value: 0, icon: ListChecks, color: "text-primary" },
+    { title: "Pending Review", value: 0, icon: Clock, color: "text-yellow-500" },
+    { title: "Resolved Issues", value: 0, icon: CheckCircle, color: "text-green-500" },
   ];
+
+  // This would be populated from backend data (e.g., notifications or recent user actions)
+  const recentActivity: React.ReactNode[] = []; 
 
   return (
     <div className="space-y-6">
@@ -47,8 +51,9 @@ export default function CitizenDashboardPage() {
             <CardContent>
               <div className="text-3xl font-bold">{stat.value}</div>
               <p className="text-xs text-muted-foreground line-clamp-2">
-                {stat.title === "Total Reports" ? "+2 this month" : 
-                 stat.title === "Pending Review" ? "Awaiting action" : "Successfully addressed"}
+                {/* Trend data would also come from backend */}
+                {stat.title === "Total Reports" ? "No new reports this month" : 
+                 stat.title === "Pending Review" ? "Awaiting action" : "No issues resolved recently"}
               </p>
             </CardContent>
           </Card>
@@ -60,23 +65,21 @@ export default function CitizenDashboardPage() {
           <CardTitle>Recent Activity</CardTitle>
         </CardHeader>
         <CardContent>
-          <ul className="space-y-3">
-            <li className="flex items-center space-x-3">
-              <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
-              <p className="truncate">Your report "<span className="font-semibold">Broken Streetlight on Elm St</span>" was marked as <span className="font-semibold text-green-600">Resolved</span>.</p>
-              <span className="ml-auto text-xs text-muted-foreground whitespace-nowrap">2 days ago</span>
-            </li>
-            <li className="flex items-center space-x-3">
-              <AlertTriangle className="h-5 w-5 text-yellow-500 flex-shrink-0" />
-              <p className="truncate">New forum post in "Roads & Transport": <span className="font-semibold text-primary">Traffic Light Timings</span>.</p>
-              <span className="ml-auto text-xs text-muted-foreground whitespace-nowrap">5 hours ago</span>
-            </li>
-             <li className="flex items-center space-x-3">
-              <FilePlus2 className="h-5 w-5 text-primary flex-shrink-0" />
-              <p className="truncate">You submitted a new report: <span className="font-semibold text-primary">"Overflowing Dustbin at Park Entrance"</span>.</p>
-              <span className="ml-auto text-xs text-muted-foreground whitespace-nowrap">1 day ago</span>
-            </li>
-          </ul>
+          {recentActivity.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-6 text-muted-foreground">
+              <Info className="h-10 w-10 mb-3" />
+              <p>No recent activity to display.</p>
+              <p className="text-xs mt-1">Your interactions will appear here.</p>
+            </div>
+          ) : (
+            <ul className="space-y-3">
+              {recentActivity.map((activity, index) => (
+                <li key={index} className="flex items-center space-x-3">
+                  {activity}
+                </li>
+              ))}
+            </ul>
+          )}
         </CardContent>
       </Card>
     </div>

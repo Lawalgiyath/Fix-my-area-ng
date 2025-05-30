@@ -56,43 +56,11 @@ export const FORUM_CATEGORIES: ForumCategory[] = [
 ];
 
 export const EDUCATIONAL_CONTENT: EducationalContent[] = [
-  {
-    id: '1',
-    title: 'How to File an Effective Report',
-    summary: 'Learn the best practices for reporting issues to ensure prompt attention and resolution from authorities.',
-    fullContent: `
-### Understanding the Importance of Effective Reporting
-When you report an issue, you're not just complaining; you're actively participating in the improvement of your community. An effective report provides clear, concise, and actionable information that helps authorities understand the problem and take appropriate steps. Vague or incomplete reports can lead to delays or misunderstandings.
-
-### Key Elements of an Effective Report:
-1.  **Clear and Specific Title:** Your title should immediately tell officials what the issue is. Instead of "Road problem," try "Large Pothole Causing Traffic Hazard on Elm Street."
-2.  **Detailed Description:**
-    *   **What:** Describe the issue precisely. Is it a broken pipe, an uncollected heap of refuse, a faulty streetlight, or a dangerous road condition?
-    *   **Where:** Provide an exact location. Use street names, house numbers, landmarks (e.g., "opposite the blue mosque," "near the big mango tree at the junction"). If possible, mention the local government area or ward.
-    *   **When:** When did you first notice the problem? Is it ongoing? Does it happen at specific times?
-    *   **Impact:** Explain how the issue affects you or the community. Does it pose a safety risk? Does it disrupt daily life? Does it damage property?
-    *   **Photos/Videos (if applicable):** Visual evidence can be very powerful. If you can safely take a clear photo or short video, include it. (The app's report form allows for media attachment).
-3.  **Your Contact Information (Optional but Recommended):** Providing your contact details (if you're comfortable) allows authorities to reach out for clarification if needed. This app assumes you're logged in, so your identity might be linked.
-4.  **Polite and Respectful Tone:** Even if you're frustrated, maintain a respectful tone. The goal is to get the issue resolved.
-5.  **One Issue Per Report:** If you have multiple unrelated issues, file separate reports. This helps in tracking and assigning them to the correct departments.
-
-### Example of a Good vs. Poor Report:
-**Poor Report:**
-*   Title: Water issue
-*   Description: No water in my area. Please fix.
-
-**Effective Report:**
-*   Title: No Water Supply for 3 Days in Sunshine Estate, Phase 2
-*   Description: Residents of Sunshine Estate, Phase 2, specifically along Bright Avenue and Hope Close, have had no water supply since Monday, July 29th, 2024. This is affecting over 50 households. We have not received any notification about planned maintenance. Please investigate and restore supply urgently.
-*   Location: Sunshine Estate, Phase 2 (Bright Avenue & Hope Close)
-
-By following these guidelines, you significantly increase the chances of your report being understood and acted upon quickly. Your contribution is vital for building a better community for everyone.
-    `,
-    icon: FilePlus2,
-    // imageUrl removed
-    // dataAiHint removed
-  },
-  // Other educational content items removed as they were placeholders
+  // All placeholder educational content removed. 
+  // If you had one "real" item, it would also be removed by this request
+  // as it's not fetched from a backend.
+  // For the prototype to have at least one learnable item, consider adding
+  // it back or fetching educational content from a backend service.
 ];
 
 export const MULTILINGUAL_GUIDE_LANGUAGES: LanguageOption[] = [
@@ -129,7 +97,7 @@ export const MULTILINGUAL_GUIDE_LANGUAGES: LanguageOption[] = [
 ];
 
 export const MOCK_ISSUES: Issue[] = [
-  // Cleared mock issues. The application will show an empty state.
+  // Cleared mock issues. The application will show an empty state or fetch from DB.
 ];
 
 export const MOCK_THREADS: Record<string, ForumThread[]> = {

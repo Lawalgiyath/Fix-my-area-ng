@@ -1,16 +1,20 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertTriangle, CheckCircle, Clock, ListChecks, Users, BarChart3 } from "lucide-react";
+import { AlertTriangle, CheckCircle, Clock, ListChecks, Users, BarChart3, Info } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
 export default function OfficialDashboardPage() {
+  // These values would typically be fetched from a backend
   const summaryData = [
-    { title: "Total Reports Received", value: 125, icon: ListChecks, trend: "+15 this week", color: "text-blue-500" },
-    { title: "Pending Action", value: 32, icon: Clock, trend: "High priority: Several issues older than 3 days requiring immediate review and assignment.", color: "text-yellow-500" },
-    { title: "Resolved This Month", value: 48, icon: CheckCircle, trend: "+5 from last month's resolution count", color: "text-green-500" },
-    { title: "High Alert Issues", value: 5, icon: AlertTriangle, trend: "Requires immediate attention due to safety concerns.", color: "text-red-500" },
+    { title: "Total Reports Received", value: "0", icon: ListChecks, trend: "No new reports this week", color: "text-blue-500" },
+    { title: "Pending Action", value: "0", icon: Clock, trend: "No issues currently pending urgent review.", color: "text-yellow-500" },
+    { title: "Resolved This Month", value: "0", icon: CheckCircle, trend: "No issues resolved this month", color: "text-green-500" },
+    { title: "High Alert Issues", value: "0", icon: AlertTriangle, trend: "No current high-alert issues.", color: "text-red-500" },
   ];
+
+  // This would be populated from backend data
+  const highPriorityReports: React.ReactNode[] = [];
 
   return (
     <div className="space-y-6">
@@ -55,22 +59,18 @@ export default function OfficialDashboardPage() {
             <CardDescription>Issues requiring immediate attention.</CardDescription>
           </CardHeader>
           <CardContent>
-            <ul className="space-y-3">
-              <li className="flex items-start justify-between p-3 rounded-md bg-red-50 border border-red-200">
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-red-700 truncate">Major water pipe burst on Independence Way causing significant local flooding and service disruption</p>
-                  <p className="text-xs text-red-600">Reported: 2 hours ago - Category: Water Supply</p>
-                </div>
-                <Button variant="outline" size="sm" className="border-red-500 text-red-500 hover:bg-red-100 ml-2 flex-shrink-0">View</Button>
-              </li>
-              <li className="flex items-start justify-between p-3 rounded-md bg-yellow-50 border border-yellow-200">
-                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-yellow-700 truncate">Bridge collapse warning on Express Road, structural integrity compromised</p>
-                  <p className="text-xs text-yellow-600">Reported: 1 day ago - Category: Roads & Transport</p>
-                </div>
-                <Button variant="outline" size="sm" className="border-yellow-500 text-yellow-500 hover:bg-yellow-100 ml-2 flex-shrink-0">View</Button>
-              </li>
-            </ul>
+            {highPriorityReports.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-6 text-muted-foreground">
+                <Info className="h-10 w-10 mb-3" />
+                <p>No high priority reports at the moment.</p>
+              </div>
+            ) : (
+              <ul className="space-y-3">
+                {highPriorityReports.map((report, index) => (
+                  <li key={index}>{report}</li>
+                ))}
+              </ul>
+            )}
           </CardContent>
         </Card>
         <Card className="shadow-md">
@@ -79,10 +79,11 @@ export default function OfficialDashboardPage() {
              <CardDescription>At-a-glance platform metrics.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2 text-sm">
-            <div className="flex justify-between"><span>Average Resolution Time:</span><span className="font-semibold">3.5 days</span></div>
-            <div className="flex justify-between"><span>Citizen Engagement Score:</span><span className="font-semibold text-green-600">78%</span></div>
-            <div className="flex justify-between"><span>Most Reported Category:</span><span className="font-semibold">Roads & Transport</span></div>
-            <div className="flex justify-between"><span>Active Officials Online:</span><span className="font-semibold">5</span></div>
+            {/* These would be fetched from backend */}
+            <div className="flex justify-between"><span>Average Resolution Time:</span><span className="font-semibold">N/A</span></div>
+            <div className="flex justify-between"><span>Citizen Engagement Score:</span><span className="font-semibold text-muted-foreground">N/A</span></div>
+            <div className="flex justify-between"><span>Most Reported Category:</span><span className="font-semibold">N/A</span></div>
+            <div className="flex justify-between"><span>Active Officials Online:</span><span className="font-semibold">N/A</span></div>
           </CardContent>
         </Card>
       </div>

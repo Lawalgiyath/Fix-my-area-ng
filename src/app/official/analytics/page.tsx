@@ -1,39 +1,28 @@
+
 "use client"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, LineChart, PieChart, Bar, Line, Pie, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
-import { TrendingUp, AlertOctagon, Users, Clock } from "lucide-react";
+import { TrendingUp, AlertOctagon, Users, Clock, Info } from "lucide-react";
 
-const mockReportData = [
-  { name: 'Jan', reports: 40, resolved: 24 },
-  { name: 'Feb', reports: 30, resolved: 13 },
-  { name: 'Mar', reports: 50, resolved: 43 },
-  { name: 'Apr', reports: 47, resolved: 30 },
-  { name: 'May', reports: 60, resolved: 38 },
-  { name: 'Jun', reports: 58, resolved: 45 },
-];
+// Data would be fetched from backend. Empty arrays mean charts will be empty.
+const reportData: { name: string, reports: number, resolved: number }[] = [];
+const categoryData: { name: string, value: number }[] = [];
+const resolutionTimeData: { date: string, time: number }[] = [];
 
-const mockCategoryData = [
-  { name: 'Roads & Transport', value: 400 },
-  { name: 'Waste Management', value: 300 },
-  { name: 'Electricity', value: 250 },
-  { name: 'Water Supply', value: 200 },
-  { name: 'Security', value: 150 },
-  { name: 'Other', value: 100 },
-];
+// Colors for the Pie chart, can be kept as they are static styling options
 const COLORS = ['#008753', '#A3E47B', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
 
-const mockResolutionTimeData = [
-  { date: '2024-07-01', time: 3.5 },
-  { date: '2024-07-08', time: 4.1 },
-  { date: '2024-07-15', time: 3.2 },
-  { date: '2024-07-22', time: 3.8 },
-  { date: '2024-07-29', time: 3.1 },
-];
-
-
 export default function AnalyticsPage() {
+  const renderEmptyChartState = () => (
+    <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+      <Info className="h-12 w-12 mb-4" />
+      <p className="text-lg">No data available for this chart.</p>
+      <p className="text-sm">Data will appear here once reports are processed.</p>
+    </div>
+  );
+
   return (
     <div className="space-y-6">
       <CardHeader className="px-0">
@@ -48,8 +37,8 @@ export default function AnalyticsPage() {
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">1,432</div>
-            <p className="text-xs text-muted-foreground">+12% from last month</p>
+            <div className="text-2xl font-bold">0</div>
+            <p className="text-xs text-muted-foreground">No data yet</p>
           </CardContent>
         </Card>
         <Card className="shadow-md">
@@ -58,8 +47,8 @@ export default function AnalyticsPage() {
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">3.4 Days</div>
-            <p className="text-xs text-muted-foreground">-0.2 days from last month</p>
+            <div className="text-2xl font-bold">N/A</div>
+            <p className="text-xs text-muted-foreground">No data yet</p>
           </CardContent>
         </Card>
         <Card className="shadow-md">
@@ -68,8 +57,8 @@ export default function AnalyticsPage() {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">876</div>
-            <p className="text-xs text-muted-foreground">+50 since last week</p>
+            <div className="text-2xl font-bold">0</div>
+            <p className="text-xs text-muted-foreground">No data yet</p>
           </CardContent>
         </Card>
          <Card className="shadow-md">
@@ -78,8 +67,8 @@ export default function AnalyticsPage() {
             <AlertOctagon className="h-4 w-4 text-red-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">12</div>
-            <p className="text-xs text-muted-foreground">Currently pending</p>
+            <div className="text-2xl font-bold">0</div>
+            <p className="text-xs text-muted-foreground">No data yet</p>
           </CardContent>
         </Card>
       </div>
@@ -91,17 +80,19 @@ export default function AnalyticsPage() {
             <CardDescription>Tracking submitted and resolved issues over time.</CardDescription>
           </CardHeader>
           <CardContent className="h-[350px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={mockReportData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="reports" fill="hsl(var(--primary))" name="Total Reports" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="resolved" fill="hsl(var(--accent))" name="Resolved" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            {reportData.length === 0 ? renderEmptyChartState() : (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={reportData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="reports" fill="hsl(var(--primary))" name="Total Reports" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="resolved" fill="hsl(var(--accent))" name="Resolved" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </CardContent>
         </Card>
 
@@ -111,26 +102,28 @@ export default function AnalyticsPage() {
             <CardDescription>Breakdown of issues by category.</CardDescription>
           </CardHeader>
           <CardContent className="h-[350px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={mockCategoryData}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  outerRadius={120}
-                  fill="#8884d8"
-                  dataKey="value"
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                >
-                  {mockCategoryData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
+            {categoryData.length === 0 ? renderEmptyChartState() : (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={categoryData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    outerRadius={120}
+                    fill="#8884d8"
+                    dataKey="value"
+                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  >
+                    {categoryData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -140,16 +133,18 @@ export default function AnalyticsPage() {
             <CardDescription>Weekly average time taken to resolve reported issues.</CardDescription>
           </CardHeader>
           <CardContent className="h-[350px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={mockResolutionTimeData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" />
-                <YAxis label={{ value: 'Days', angle: -90, position: 'insideLeft' }} />
-                <Tooltip />
-                <Legend />
-                <Line type="monotone" dataKey="time" stroke="hsl(var(--primary))" strokeWidth={2} activeDot={{ r: 8 }} name="Avg. Resolution Time (Days)" />
-              </LineChart>
-            </ResponsiveContainer>
+            {resolutionTimeData.length === 0 ? renderEmptyChartState() : (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={resolutionTimeData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="date" />
+                  <YAxis label={{ value: 'Days', angle: -90, position: 'insideLeft' }} />
+                  <Tooltip />
+                  <Legend />
+                  <Line type="monotone" dataKey="time" stroke="hsl(var(--primary))" strokeWidth={2} activeDot={{ r: 8 }} name="Avg. Resolution Time (Days)" />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
           </CardContent>
         </Card>
     </div>
