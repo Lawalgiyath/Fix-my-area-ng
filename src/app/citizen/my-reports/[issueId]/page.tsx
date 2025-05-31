@@ -3,11 +3,11 @@
 
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import type { Issue } from '@/types';
+import type { Issue, UserProfile } from '@/types'; // Added UserProfile
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { AlertCircle, CheckCircle, Clock, MapPin, Tag, MessageSquare, ArrowLeft, User, CalendarDays, Info, FileText, Loader2 } from 'lucide-react';
+import { AlertCircle, CheckCircle, Clock, MapPin, Tag, MessageSquare, ArrowLeft, User, CalendarDays, Info, FileText, Loader2, Send } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import Image from 'next/image';
 import { useToast } from "@/hooks/use-toast";
@@ -22,8 +22,13 @@ const statusConfig: Record<Issue["status"], { icon: React.ElementType; badgeClas
   Rejected: { icon: AlertCircle, badgeClass: "border-red-500 bg-red-50 text-red-700", textClass: "text-red-700" },
 };
 
-// Mock comments are local to this page for now
-const MOCK_COMMENTS: {id: string; author: string; text: string; date: string; userType: 'official' | 'citizen'}[] = []; 
+type DisplayComment = {
+    id: string;
+    author: string;
+    text: string;
+    date: string;
+    userType: 'official' | 'citizen';
+};
 
 // Helper to convert Firestore Timestamps in a single issue object
 function processSingleIssueTimestamps(issueData: any): Omit<Issue, 'id'> {
@@ -31,8 +36,6 @@ function processSingleIssueTimestamps(issueData: any): Omit<Issue, 'id'> {
   if (issueData.createdAt && issueData.createdAt instanceof Timestamp) {
     processedData.createdAt = issueData.createdAt.toDate().toISOString();
   }
-  // dateReported should already be an ISO string from saveIssueReport action
-  // or needs similar conversion if fetched directly and is a Timestamp
   if (issueData.dateReported && issueData.dateReported instanceof Timestamp) {
     processedData.dateReported = issueData.dateReported.toDate().toISOString();
   }
@@ -49,6 +52,25 @@ export default function IssueDetailPage() {
   const [issue, setIssue] = useState<Issue | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [currentUser, setCurrentUser] = useState<Pick<UserProfile, 'firstName' | 'moniker'> | null>(null);
+
+  const [displayComments, setDisplayComments] = useState<DisplayComment[]>([]);
+  const [newCommentText, setNewCommentText] = useState("");
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const storedUser = localStorage.getItem('mockUser');
+      if (storedUser) {
+        try {
+          const parsedUser: Pick<UserProfile, 'firstName' | 'moniker'> = JSON.parse(storedUser);
+          setCurrentUser(parsedUser);
+        } catch (e) {
+          console.error("Failed to parse mock user for comments", e);
+        }
+      }
+    }
+  }, []);
+
 
   useEffect(() => {
     if (!issueId) {
@@ -95,9 +117,31 @@ export default function IssueDetailPage() {
 
 
   const handlePostComment = () => {
+    if (!newCommentText.trim()) {
+      toast({
+        title: "Cannot Post Empty Comment",
+        description: "Please write something before posting.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const authorName = currentUser ? `${currentUser.firstName} (${currentUser.moniker || 'You'})` : 'Citizen User (You)';
+
+    const newCommentToAdd: DisplayComment = {
+      id: Date.now().toString(),
+      author: authorName,
+      text: newCommentText,
+      date: new Date().toISOString(),
+      userType: 'citizen',
+    };
+
+    setDisplayComments(prevComments => [...prevComments, newCommentToAdd]);
+    setNewCommentText(""); // Clear the input field
+
     toast({
-      title: "Demo Action",
-      description: "Posting comments is not fully implemented in this prototype.",
+      title: "Comment Added (Simulated)",
+      description: "Your comment is visible for this session. It has not been saved permanently.",
       variant: "default",
       className: "bg-blue-50 border-blue-200 text-blue-700"
     });
@@ -216,28 +260,36 @@ export default function IssueDetailPage() {
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle className="text-xl flex items-center text-primary">
-            <MessageSquare className="mr-2 h-5 w-5" /> Discussion / Updates ({MOCK_COMMENTS.length})
+            <MessageSquare className="mr-2 h-5 w-5" /> Discussion / Updates ({displayComments.length})
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {MOCK_COMMENTS.length === 0 && <p className="text-sm text-muted-foreground">No comments or updates yet for this issue.</p>}
-          {MOCK_COMMENTS.map(comment => (
+          {displayComments.length === 0 && <p className="text-sm text-muted-foreground">No comments or updates yet for this issue. Be the first to comment!</p>}
+          {displayComments.map(comment => (
             <div key={comment.id} className={`p-4 rounded-lg border ${comment.userType === 'official' ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 border-gray-200'}`}>
               <div className="flex justify-between items-center mb-1">
                 <p className={`font-semibold text-sm ${comment.userType === 'official' ? 'text-blue-700' : 'text-gray-700'}`}>{comment.author} {comment.userType === 'official' && <Badge variant="outline" className="ml-2 border-blue-500 text-blue-600">Official</Badge>}</p>
-                <p className="text-xs text-muted-foreground">{new Date(comment.date).toLocaleDateString()}</p>
+                <p className="text-xs text-muted-foreground">{new Date(comment.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
               </div>
-              <p className="text-sm text-foreground/90">{comment.text}</p>
+              <p className="text-sm text-foreground/90 whitespace-pre-wrap">{comment.text}</p>
             </div>
           ))}
         </CardContent>
         <CardFooter className="border-t pt-4">
           <div className="w-full space-y-2">
-            <Textarea placeholder="Type your comment or update here..." className="min-h-[80px]" />
-            <Button className="bg-primary hover:bg-primary/80" onClick={handlePostComment}>Post Comment</Button>
+            <Textarea 
+                placeholder="Type your comment or update here..." 
+                className="min-h-[80px]" 
+                value={newCommentText}
+                onChange={(e) => setNewCommentText(e.target.value)}
+            />
+            <Button className="bg-primary hover:bg-primary/80" onClick={handlePostComment}>
+                <Send className="mr-2 h-4 w-4" /> Post Comment
+            </Button>
           </div>
         </CardFooter>
       </Card>
     </div>
   );
 }
+
