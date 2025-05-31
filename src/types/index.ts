@@ -1,6 +1,6 @@
 
 import type { LucideIcon } from 'lucide-react';
-import type { Timestamp } from 'firebase/firestore';
+// No longer need Timestamp from 'firebase/firestore' here as we convert to string upon fetch for app use.
 
 export type NavItem = {
   title: string;
@@ -29,7 +29,7 @@ export type Issue = {
   title: string;
   description: string;
   status: "Submitted" | "In Progress" | "Resolved" | "Rejected";
-  dateReported: string; // ISO string from client-side initiation or server
+  dateReported: string; // ISO string (client-side or converted from Firestore Timestamp)
   location: string;
   mediaUrls?: string[]; // URLs to media files (after upload)
   aiClassification?: {
@@ -61,7 +61,7 @@ export type EducationalContent = {
   id: string; 
   title: string;
   summary: string;
-  fullContent?: string;
+  fullContent?: string; // HTML content
   icon: LucideIcon;
   dataAiHint?: string; // For placeholder image context
 };

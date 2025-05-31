@@ -1,18 +1,19 @@
 
 "use client";
 
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { MOCK_ISSUES } from '@/lib/constants'; // Will be empty array now
 import type { Issue } from '@/types';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { AlertCircle, CheckCircle, Clock, MapPin, Tag, MessageSquare, ArrowLeft, User, CalendarDays, Info } from 'lucide-react';
+import { AlertCircle, CheckCircle, Clock, MapPin, Tag, MessageSquare, ArrowLeft, User, CalendarDays, Info, FileText, Loader2 } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
-import Image from 'next/image'; // Added Image import
+import Image from 'next/image';
 import { useToast } from "@/hooks/use-toast";
-
+import React, { useEffect, useState } from 'react';
+import { doc, getDoc, Timestamp } from 'firebase/firestore';
+import { db } from '@/lib/firebase-config';
 
 const statusConfig: Record<Issue["status"], { icon: React.ElementType; badgeClass: string; textClass: string }> = {
   Submitted: { icon: AlertCircle, badgeClass: "border-blue-500 bg-blue-50 text-blue-700", textClass: "text-blue-700" },
@@ -24,11 +25,74 @@ const statusConfig: Record<Issue["status"], { icon: React.ElementType; badgeClas
 // Mock comments are local to this page for now
 const MOCK_COMMENTS: {id: string; author: string; text: string; date: string; userType: 'official' | 'citizen'}[] = []; 
 
+// Helper to convert Firestore Timestamps in a single issue object
+function processSingleIssueTimestamps(issueData: any): Omit<Issue, 'id'> {
+  const processedData = { ...issueData };
+  if (issueData.createdAt && issueData.createdAt instanceof Timestamp) {
+    processedData.createdAt = issueData.createdAt.toDate().toISOString();
+  }
+  // dateReported should already be an ISO string from saveIssueReport action
+  // or needs similar conversion if fetched directly and is a Timestamp
+  if (issueData.dateReported && issueData.dateReported instanceof Timestamp) {
+    processedData.dateReported = issueData.dateReported.toDate().toISOString();
+  }
+  return processedData as Omit<Issue, 'id'>;
+}
+
+
 export default function IssueDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const issueId = params.issueId as string;
-  const issue = MOCK_ISSUES.find((iss) => iss.id === issueId); // MOCK_ISSUES is empty, so this will be undefined
   const { toast } = useToast();
+
+  const [issue, setIssue] = useState<Issue | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!issueId) {
+      setError("Issue ID is missing.");
+      setLoading(false);
+      return;
+    }
+
+    const fetchIssue = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const issueRef = doc(db, "issues", issueId);
+        const issueSnap = await getDoc(issueRef);
+
+        if (issueSnap.exists()) {
+          setIssue({
+            id: issueSnap.id,
+            ...processSingleIssueTimestamps(issueSnap.data()),
+          } as Issue);
+        } else {
+          setError("Issue not found.");
+          toast({
+            title: "Error",
+            description: "The requested issue could not be found.",
+            variant: "destructive",
+          });
+        }
+      } catch (err) {
+        console.error("Error fetching issue:", err);
+        setError("Failed to fetch issue details.");
+        toast({
+          title: "Error",
+          description: "Could not retrieve issue details. Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchIssue();
+  }, [issueId, toast]);
+
 
   const handlePostComment = () => {
     toast({
@@ -39,17 +103,24 @@ export default function IssueDetailPage() {
     });
   };
 
-  if (!issue) { // This will always be true since MOCK_ISSUES is empty.
-              // In a real app, you'd fetch the issue by ID here.
+  if (loading) {
+    return (
+      <div className="container mx-auto py-8 text-center flex flex-col items-center justify-center min-h-[60vh]">
+        <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+        <p className="text-muted-foreground">Loading issue details...</p>
+      </div>
+    );
+  }
+
+  if (error || !issue) {
     return (
       <div className="container mx-auto py-8 text-center">
         <AlertCircle className="mx-auto h-12 w-12 text-destructive mb-4" />
         <h1 className="text-2xl font-semibold">Issue Not Found</h1>
         <p className="text-muted-foreground">
-          The issue you are looking for does not exist or is not available. 
-          If you just submitted it, it might take a moment to appear or you may need to fetch it from the database.
+          {error || "The issue you are looking for does not exist or could not be loaded."}
         </p>
-        <Button asChild variant="outline" className="mt-6">
+        <Button asChild variant="outline" className="mt-6" onClick={() => router.push('/citizen/my-reports')}>
           <Link href="/citizen/my-reports">
             <ArrowLeft className="mr-2 h-4 w-4" /> Back to My Reports
           </Link>
@@ -58,22 +129,22 @@ export default function IssueDetailPage() {
     );
   }
 
-  const CurrentStatusIcon = statusConfig[issue.status].icon;
-  const currentBadgeClass = statusConfig[issue.status].badgeClass;
-  const currentTextClass = statusConfig[issue.status].textClass;
+  const CurrentStatusIcon = statusConfig[issue.status]?.icon || Info;
+  const currentBadgeClass = statusConfig[issue.status]?.badgeClass || "border-gray-500 bg-gray-50 text-gray-700";
+  const currentTextClass = statusConfig[issue.status]?.textClass || "text-gray-700";
 
   return (
     <div className="container mx-auto py-6 space-y-6">
-      <Link href="/citizen/my-reports" className="inline-flex items-center text-sm text-primary hover:underline mb-4">
+      <Button variant="outline" size="sm" onClick={() => router.back()} className="mb-4">
         <ArrowLeft className="mr-1 h-4 w-4" />
-        Back to My Reports
-      </Link>
+        Back
+      </Button>
 
       <Card className="shadow-xl">
         <CardHeader>
           <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-2">
             <CardTitle className="text-2xl md:text-3xl font-bold text-primary">{issue.title}</CardTitle>
-            <Badge variant="outline" className={`text-sm px-3 py-1 ${currentBadgeClass} self-start md:self-center`}>
+            <Badge variant="outline" className={`text-sm px-3 py-1 ${currentBadgeClass} self-start md:self-center whitespace-nowrap`}>
               <CurrentStatusIcon className={`mr-2 h-4 w-4 ${currentTextClass}`} />
               {issue.status}
             </Badge>
@@ -88,22 +159,28 @@ export default function IssueDetailPage() {
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-            <div className="flex items-center text-muted-foreground">
-              <MapPin className="mr-2 h-5 w-5 text-primary flex-shrink-0" />
-              <strong>Location:</strong> <span className="ml-1">{issue.location}</span>
+            <div className="flex items-start text-muted-foreground">
+              <MapPin className="mr-2 h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
+              <div><strong>Location:</strong> <span className="ml-1">{issue.location}</span></div>
             </div>
-            <div className="flex items-center text-muted-foreground">
-              <Tag className="mr-2 h-5 w-5 text-primary flex-shrink-0" />
-              <strong>Category:</strong> <span className="ml-1">{issue.categoryManual || issue.aiClassification?.category || 'N/A'}</span>
+            <div className="flex items-start text-muted-foreground">
+              <Tag className="mr-2 h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
+              <div><strong>Category:</strong> <span className="ml-1">{issue.categoryManual || issue.aiClassification?.category || 'N/A'}</span></div>
             </div>
-            <div className="flex items-center text-muted-foreground">
-              <User className="mr-2 h-5 w-5 text-primary flex-shrink-0" />
-              <strong>Reporter:</strong> <span className="ml-1">{issue.reportedById || 'N/A'}</span>
+            <div className="flex items-start text-muted-foreground">
+              <User className="mr-2 h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
+              <div><strong>Reporter ID:</strong> <span className="ml-1 truncate">{issue.reportedById || 'N/A'}</span></div>
             </div>
-            <div className="flex items-center text-muted-foreground">
-              <CalendarDays className="mr-2 h-5 w-5 text-primary flex-shrink-0" />
-              <strong>Date Reported:</strong> <span className="ml-1">{new Date(issue.dateReported).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+            <div className="flex items-start text-muted-foreground">
+              <CalendarDays className="mr-2 h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
+              <div><strong>Date Reported:</strong> <span className="ml-1">{new Date(issue.dateReported).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span></div>
             </div>
+             {issue.createdAt && (
+                <div className="flex items-start text-muted-foreground md:col-span-2">
+                    <FileText className="mr-2 h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
+                    <div><strong>Logged at (Server):</strong> <span className="ml-1">{new Date(issue.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span></div>
+                </div>
+            )}
           </div>
 
           {issue.aiClassification && (
@@ -115,13 +192,11 @@ export default function IssueDetailPage() {
           
           <div>
             <h3 className="text-lg font-semibold mb-2 text-primary">Attached Media</h3>
-            {issue.mediaUrls && issue.mediaUrls.length > 0 ? (
+            {(issue.mediaUrls && issue.mediaUrls.length > 0) ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 mt-2">
                 {issue.mediaUrls.map((url, index) => (
                   <div key={index} className="relative aspect-square rounded-lg overflow-hidden shadow-md">
                     <Image
-                      // In a real scenario, this 'url' would be the actual media URL from Firestore/Storage
-                      // For placeholder:
                       src={url.startsWith('http') ? url : "https://placehold.co/300x300.png"}
                       alt={`Attached media ${index + 1}`}
                       layout="fill"
