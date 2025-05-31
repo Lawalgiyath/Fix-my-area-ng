@@ -212,33 +212,12 @@ export const MOCK_ISSUES: Issue[] = [
 
 export const LOCAL_STORAGE_FORUM_THREADS_KEY = 'civicconnect_forum_threads';
 
+// Initialize MOCK_THREADS with empty arrays for each category slug
+// This ensures the structure is available for localStorage initialization
+// but starts with no predefined discussions.
 export const MOCK_THREADS: Record<string, ForumThread[]> = {
-  'roads-transport': [
-    {
-        id: 'roads-1',
-        title: 'Pothole on Elm Street needs urgent repair!',
-        author: 'ConcernedCitizen12',
-        authorFirstName: 'John',
-        categorySlug: 'roads-transport',
-        contentPreview: 'There is a massive pothole near the junction of Elm Street and Oak Avenue. It has been there for weeks and is causing damage to vehicles. Requesting immediate attention.',
-        repliesCount: 3,
-        lastReply: '3 hours ago',
-        createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), // 2 days ago
-    }
-  ],
-  'waste-management': [
-      {
-        id: 'waste-1',
-        title: 'Overflowing bins in City Park',
-        author: 'ParkLover22',
-        authorFirstName: 'Aisha',
-        categorySlug: 'waste-management',
-        contentPreview: 'The public bins in City Park, especially near the playground, are constantly overflowing. This is unsanitary and attracts pests. Can we have more frequent collections or larger bins?',
-        repliesCount: 5,
-        lastReply: 'Yesterday',
-        createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(), // 5 days ago
-    }
-  ],
+  'roads-transport': [],
+  'waste-management': [],
   'electricity': [],
   'water': [],
   'security': [],
