@@ -3,7 +3,6 @@ import type { EducationalContent } from "@/types";
 import Link from "next/link";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import Image from "next/image";
 import { ArrowRight } from "lucide-react";
 
 type EducationalCardProps = {
@@ -14,16 +13,6 @@ export function EducationalCard({ content }: EducationalCardProps) {
   const Icon = content.icon;
   return (
     <Card className="h-full flex flex-col shadow-lg hover:shadow-xl transition-shadow duration-300 overflow-hidden group">
-      <div className="relative w-full h-48 overflow-hidden">
-        <Image 
-          src="https://placehold.co/600x400.png" // Standard placeholder
-          alt={content.title} 
-          layout="fill" 
-          objectFit="cover" 
-          className="group-hover:scale-105 transition-transform duration-300"
-          data-ai-hint={content.dataAiHint || "learn guide"}
-        />
-      </div>
       <CardHeader className="flex-grow pb-2 pt-4">
         <div className="flex items-start gap-3 mb-2">
           <div className="p-2 bg-primary/10 rounded-full flex-shrink-0">

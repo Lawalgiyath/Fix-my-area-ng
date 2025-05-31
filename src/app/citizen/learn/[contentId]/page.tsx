@@ -3,7 +3,6 @@
 
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import Image from 'next/image';
 import { EDUCATIONAL_CONTENT } from '@/lib/constants';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -39,15 +38,6 @@ export default function EducationalContentPage() {
       </Link>
 
       <Card className="shadow-xl overflow-hidden">
-        <div className="relative w-full h-64 md:h-80 overflow-hidden">
-            <Image 
-              src="https://placehold.co/600x400.png" // Standard placeholder
-              alt={contentItem.title} 
-              layout="fill" 
-              objectFit="cover"
-              data-ai-hint={contentItem.dataAiHint || "education detail"}
-            />
-        </div>
         <CardHeader className="border-b pt-6">
           <div className="flex items-center gap-3 mb-2">
             <div className="p-3 bg-primary/10 rounded-full">
@@ -65,7 +55,7 @@ export default function EducationalContentPage() {
           {contentItem.fullContent ? (
             <article 
               className="prose prose-sm sm:prose lg:prose-lg xl:prose-xl max-w-none dark:prose-invert"
-              dangerouslySetInnerHTML={{ __html: contentItem.fullContent }} // Using dangerouslySetInnerHTML for HTML content
+              dangerouslySetInnerHTML={{ __html: contentItem.fullContent }}
             />
           ) : (
             <p className="text-muted-foreground">Detailed content coming soon for this topic.</p>
