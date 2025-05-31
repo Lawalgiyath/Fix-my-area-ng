@@ -2,23 +2,24 @@
 'use server';
 
 import { db } from '@/lib/firebase-config';
-import type { Issue } from '@/types';
+import type { Issue, AIUrgencyAssessment } from '@/types';
 import { collection, addDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import type { CategorizeIssueOutput } from '@/ai/flows/categorize-issue';
+import type { AssessIssueUrgencyOutput } from '@/ai/flows/assess-issue-urgency';
 
-// This type is a subset of the Issue type, representing what we save to Firestore initially.
-// Firestore will add an `id` automatically.
+
 type IssueReportData = {
   title: string;
   description: string;
   location: string;
   categoryManual?: string;
   aiClassification?: CategorizeIssueOutput;
-  mediaUrls?: string[]; // For now, we're not handling uploads, but preparing for future
+  aiUrgencyAssessment?: AssessIssueUrgencyOutput; // Added
+  mediaUrls?: string[];
   status: Issue['status'];
-  reportedById: string; // In a real app, this would be the authenticated user's ID
-  dateReported: string; // Client-side date string when report was initiated
-  createdAt: Timestamp; // Server-side timestamp
+  reportedById: string;
+  dateReported: string;
+  createdAt: Timestamp;
 };
 
 
@@ -28,12 +29,12 @@ export async function saveIssueReport(
     description: string;
     location: string;
     categoryManual?: string;
-    // media?: FileList; // Media handling would be complex, store URLs if uploaded elsewhere
+    // media?: FileList; // For actual upload, this would be URLs
   },
-  aiResult: CategorizeIssueOutput | null
+  aiCategorizationResult: CategorizeIssueOutput | null,
+  aiUrgencyResult: AssessIssueUrgencyOutput | null // Added
 ): Promise<{ success: boolean; error?: string; issueId?: string }> {
   try {
-    // In a real app with authentication, get the userId from the session
     const userId = 'mock_citizen_user_id'; // Placeholder
 
     const issueData: IssueReportData = {
@@ -41,12 +42,13 @@ export async function saveIssueReport(
       description: formData.description,
       location: formData.location,
       categoryManual: formData.categoryManual,
-      aiClassification: aiResult || undefined,
-      mediaUrls: [], // Placeholder, file uploads need separate handling
+      aiClassification: aiCategorizationResult || undefined,
+      aiUrgencyAssessment: aiUrgencyResult || undefined, // Added
+      mediaUrls: [], // Placeholder for actual media URLs
       status: 'Submitted',
       reportedById: userId,
-      dateReported: new Date().toISOString(), // Record client-side submission initiation time
-      createdAt: serverTimestamp() as Timestamp, // Firestore server-side timestamp
+      dateReported: new Date().toISOString(),
+      createdAt: serverTimestamp() as Timestamp,
     };
 
     const docRef = await addDoc(collection(db, 'issues'), issueData);

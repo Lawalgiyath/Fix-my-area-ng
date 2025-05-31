@@ -1,7 +1,7 @@
 
 "use client";
 
-import type { UserRole } from "@/types";
+import type { UserRole, MockRegisteredUser } from "@/types";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -21,6 +21,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 const formSchema = z.object({
   email: z.string().email({ message: "Invalid email address." }),
@@ -34,6 +35,7 @@ type AuthFormProps = {
 
 export function AuthForm({ userType }: AuthFormProps) {
   const router = useRouter();
+  const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -48,23 +50,41 @@ export function AuthForm({ userType }: AuthFormProps) {
   function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
     console.log("Login form submitted:", values);
-    // Simulate API call
+
     setTimeout(() => {
       setIsLoading(false);
-      // For demo, store a mock user object to show personalized welcome
-      // In a real app, this would come from your auth provider
       if (typeof window !== 'undefined') {
-        localStorage.setItem('mockUser', JSON.stringify({
-          firstName: 'Demo',
-          lastName: userType === 'citizen' ? 'Citizen' : 'Official',
-          gender: 'male', // default for demo
-        }));
-      }
+        const registeredUsers: MockRegisteredUser[] = JSON.parse(localStorage.getItem('mockRegisteredUsers') || '[]');
+        const foundUser = registeredUsers.find(user => user.email === values.email && user.userType === userType);
 
-      if (userType === "citizen") {
-        router.push("/citizen/dashboard");
-      } else {
-        router.push("/official/dashboard");
+        if (!foundUser) {
+          toast({
+            title: "Login Failed",
+            description: "User not found or role mismatch. Please check your email, role or sign up.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        // If user found, proceed with mock login
+        localStorage.setItem('mockUser', JSON.stringify({
+          firstName: foundUser.firstName,
+          lastName: foundUser.lastName,
+          moniker: foundUser.moniker,
+          gender: foundUser.gender,
+        }));
+        
+        toast({
+          title: "Login Successful!",
+          description: `Welcome back, ${foundUser.firstName}!`,
+          className: "bg-green-50 border-green-200 text-green-700"
+        });
+
+        if (userType === "citizen") {
+          router.push("/citizen/dashboard");
+        } else {
+          router.push("/official/dashboard");
+        }
       }
     }, 1500);
   }

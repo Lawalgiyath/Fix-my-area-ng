@@ -7,10 +7,10 @@ import { doc, getDoc, Timestamp } from 'firebase/firestore';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { AlertCircle, CheckCircle, Clock, MapPin, Tag, User, CalendarDays, MessageSquare, ArrowLeft, Info, ShieldAlert, Edit, FileText, UserCheck, Users } from 'lucide-react';
+import { AlertCircle, CheckCircle, Clock, MapPin, Tag, User, CalendarDays, MessageSquare, ArrowLeft, Info, ShieldAlert, Edit, FileText, UserCheck, Users, Brain } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { notFound } from 'next/navigation'; // Import notFound
+import { notFound } from 'next/navigation';
 
 const statusConfig: Record<Issue["status"], { icon: React.ElementType; badgeClass: string; textClass: string; description: string }> = {
   Submitted: { icon: AlertCircle, badgeClass: "border-blue-500 bg-blue-50 text-blue-700", textClass: "text-blue-700", description: "Report has been submitted and is awaiting review." },
@@ -19,14 +19,20 @@ const statusConfig: Record<Issue["status"], { icon: React.ElementType; badgeClas
   Rejected: { icon: AlertCircle, badgeClass: "border-red-500 bg-red-50 text-red-700", textClass: "text-red-700", description: "Report was reviewed and rejected (e.g., duplicate, not an issue)." },
 };
 
-// Helper to convert Firestore Timestamps in a single issue object
+const urgencyBadgeConfig: Record<NonNullable<Issue['aiUrgencyAssessment']>['urgency'], { badgeClass: string; icon?: React.ElementType }> = {
+    Emergency: { badgeClass: "border-red-700 bg-red-100 text-red-800 font-bold", icon: ShieldAlert },
+    High: { badgeClass: "border-orange-600 bg-orange-50 text-orange-700", icon: AlertTriangle },
+    Medium: { badgeClass: "border-yellow-500 bg-yellow-50 text-yellow-700" },
+    Low: { badgeClass: "border-sky-500 bg-sky-50 text-sky-700" },
+    Unknown: { badgeClass: "border-gray-400 bg-gray-100 text-gray-600" },
+};
+
+
 function processSingleIssueTimestamps(issueData: any): Omit<Issue, 'id'> {
   const processedData = { ...issueData };
   if (issueData.createdAt && issueData.createdAt instanceof Timestamp) {
     processedData.createdAt = issueData.createdAt.toDate().toISOString();
   }
-  // dateReported should already be an ISO string from saveIssueReport action
-  // or needs similar conversion if fetched directly and is a Timestamp
   if (issueData.dateReported && issueData.dateReported instanceof Timestamp) {
     processedData.dateReported = issueData.dateReported.toDate().toISOString();
   }
@@ -50,7 +56,7 @@ async function getIssueDetails(issueId: string): Promise<Issue | null> {
     }
   } catch (error) {
     console.error("Error fetching issue details for official:", error);
-    return null; // Or throw error to be caught by Next.js error boundary
+    return null;
   }
 }
 
@@ -58,13 +64,17 @@ export default async function OfficialIssueDetailPage({ params }: { params: { is
   const issue = await getIssueDetails(params.issueId);
 
   if (!issue) {
-    notFound(); // This will render the nearest not-found.tsx or a default Next.js 404 page
+    notFound();
   }
 
   const CurrentStatusIcon = statusConfig[issue.status]?.icon || Info;
   const currentBadgeClass = statusConfig[issue.status]?.badgeClass || "border-gray-500 bg-gray-50 text-gray-700";
   const currentTextClass = statusConfig[issue.status]?.textClass || "text-gray-700";
   const statusDescription = statusConfig[issue.status]?.description || "Status undefined.";
+
+  const UrgencyIcon = issue.aiUrgencyAssessment ? urgencyBadgeConfig[issue.aiUrgencyAssessment.urgency]?.icon : null;
+  const urgencyBadgeClass = issue.aiUrgencyAssessment ? urgencyBadgeConfig[issue.aiUrgencyAssessment.urgency]?.badgeClass : "";
+
 
   return (
     <div className="container mx-auto py-6 space-y-8">
@@ -73,17 +83,24 @@ export default async function OfficialIssueDetailPage({ params }: { params: { is
           <ArrowLeft className="mr-1 h-4 w-4" />
           Back to All Reports
         </Link>
-        {/* Placeholder for future actions like Print or Share */}
       </div>
 
       <Card className="shadow-xl">
         <CardHeader className="border-b">
           <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-2">
             <CardTitle className="text-2xl md:text-3xl font-bold text-primary">{issue.title}</CardTitle>
-            <Badge variant="outline" className={`text-sm px-3 py-1 ${currentBadgeClass} self-start md:self-center whitespace-nowrap`}>
-              <CurrentStatusIcon className={`mr-2 h-4 w-4 ${currentTextClass}`} />
-              {issue.status}
-            </Badge>
+            <div className="flex flex-col items-end gap-2 self-start md:self-center">
+                <Badge variant="outline" className={`text-sm px-3 py-1 ${currentBadgeClass} whitespace-nowrap`}>
+                  <CurrentStatusIcon className={`mr-2 h-4 w-4 ${currentTextClass}`} />
+                  {issue.status}
+                </Badge>
+                {issue.aiUrgencyAssessment && (
+                    <Badge variant="outline" className={`text-xs px-2 py-0.5 ${urgencyBadgeClass} whitespace-nowrap`}>
+                        {UrgencyIcon && <UrgencyIcon className="mr-1.5 h-3.5 w-3.5" />}
+                        AI Urgency: {issue.aiUrgencyAssessment.urgency}
+                    </Badge>
+                )}
+            </div>
           </div>
           <CardDescription className="text-sm text-muted-foreground mt-1">
             Issue ID: {issue.id} &bull; {statusDescription}
@@ -106,7 +123,7 @@ export default async function OfficialIssueDetailPage({ params }: { params: { is
               </div>
               <div className="flex items-start">
                 <Tag className="mr-3 h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
-                <div><strong className="text-muted-foreground">Category:</strong> <span className="ml-1">{issue.categoryManual || issue.aiClassification?.category || 'N/A'}</span></div>
+                <div><strong className="text-muted-foreground">Category (Manual):</strong> <span className="ml-1">{issue.categoryManual || 'N/A'}</span></div>
               </div>
               <div className="flex items-start">
                 <User className="mr-3 h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
@@ -125,15 +142,29 @@ export default async function OfficialIssueDetailPage({ params }: { params: { is
             </div>
           </section>
 
-          {issue.aiClassification && (
-            <section>
-              <h3 className="text-lg font-semibold text-primary mb-2">AI Analysis</h3>
-              <div className="p-3 bg-blue-50 border border-blue-200 rounded-md text-sm text-blue-800">
-                <p>Suggested Category: <span className="font-medium">{issue.aiClassification.category}</span></p>
-                <p>Confidence: <span className="font-medium">{(issue.aiClassification.confidence * 100).toFixed(0)}%</span></p>
-              </div>
-            </section>
-          )}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {issue.aiClassification && (
+              <section>
+                <h3 className="text-lg font-semibold text-primary mb-2 flex items-center"><Brain className="mr-2 h-5 w-5"/>AI Category Analysis</h3>
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-md text-sm text-blue-800">
+                  <p>Suggested Category: <span className="font-medium">{issue.aiClassification.category}</span></p>
+                  <p>Confidence: <span className="font-medium">{(issue.aiClassification.confidence * 100).toFixed(0)}%</span></p>
+                </div>
+              </section>
+            )}
+            {issue.aiUrgencyAssessment && (
+              <section>
+                <h3 className="text-lg font-semibold text-primary mb-2 flex items-center"><ShieldAlert className="mr-2 h-5 w-5"/>AI Urgency Assessment</h3>
+                <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md text-sm text-yellow-800">
+                  <p>Assessed Urgency: <span className="font-medium">{issue.aiUrgencyAssessment.urgency}</span></p>
+                  <p>Reasoning: <span className="italic">{issue.aiUrgencyAssessment.reasoning}</span></p>
+                   {issue.aiUrgencyAssessment.confidence && (
+                    <p>Confidence: <span className="font-medium">{(issue.aiUrgencyAssessment.confidence * 100).toFixed(0)}%</span></p>
+                   )}
+                </div>
+              </section>
+            )}
+          </div>
           
           <section>
             <h3 className="text-lg font-semibold text-primary mb-2">Attached Media</h3>
@@ -148,7 +179,6 @@ export default async function OfficialIssueDetailPage({ params }: { params: { is
                       objectFit="cover"
                       data-ai-hint="report evidence" 
                     />
-                    {/* TODO: Add lightbox functionality for images */}
                   </div>
                 ))}
               </div>
@@ -162,11 +192,10 @@ export default async function OfficialIssueDetailPage({ params }: { params: { is
         </CardContent>
       </Card>
 
-      {/* Official Actions Section - Placeholder */}
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle className="text-xl flex items-center text-primary">
-            <ShieldAlert className="mr-2 h-5 w-5" /> Official Actions & Log
+            <Edit className="mr-2 h-5 w-5" /> Official Actions & Log
           </CardTitle>
           <CardDescription>Manage issue status, assign tasks, and view activity log.</CardDescription>
         </CardHeader>

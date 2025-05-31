@@ -22,6 +22,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
+import type { MockRegisteredUser, UserRole } from "@/types";
+import { useToast } from "@/hooks/use-toast";
 
 const signUpFormSchema = z.object({
   firstName: z.string().min(2, { message: "First name must be at least 2 characters." }),
@@ -31,15 +33,16 @@ const signUpFormSchema = z.object({
   password: z.string().min(6, { message: "Password must be at least 6 characters." }),
   confirmPassword: z.string().min(6, { message: "Password must be at least 6 characters." }),
   gender: z.enum(["male", "female", "other"], { required_error: "Please select your gender."}),
-  userType: z.enum(["citizen", "official"], { required_error: "Please select your user type."}),
+  userType: z.enum(["citizen", "official"] as [UserRole, ...UserRole[]], { required_error: "Please select your user type."}),
   rememberMe: z.boolean().optional(),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
-  path: ["confirmPassword"], // path to error
+  path: ["confirmPassword"],
 });
 
 export function SignUpForm() {
   const router = useRouter();
+  const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
 
   const form = useForm<z.infer<typeof signUpFormSchema>>({
@@ -60,24 +63,53 @@ export function SignUpForm() {
   function onSubmit(values: z.infer<typeof signUpFormSchema>) {
     setIsLoading(true);
     console.log("Sign up form submitted:", values);
-    // Simulate API call for registration
+
     setTimeout(() => {
       setIsLoading(false);
-       // For demo, store a mock user object to show personalized welcome
       if (typeof window !== 'undefined') {
+        // Mock registration: Save to localStorage
+        let registeredUsers: MockRegisteredUser[] = JSON.parse(localStorage.getItem('mockRegisteredUsers') || '[]');
+        const existingUser = registeredUsers.find(user => user.email === values.email);
+
+        if (existingUser) {
+          toast({
+            title: "Registration Failed",
+            description: "An account with this email already exists. Please login or use a different email.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        const newUser: MockRegisteredUser = {
+          email: values.email,
+          firstName: values.firstName,
+          lastName: values.lastName,
+          moniker: values.moniker,
+          gender: values.gender,
+          userType: values.userType,
+        };
+        registeredUsers.push(newUser);
+        localStorage.setItem('mockRegisteredUsers', JSON.stringify(registeredUsers));
+
+        // Store current user details for immediate "logged-in" state after signup
         localStorage.setItem('mockUser', JSON.stringify({
           firstName: values.firstName,
           lastName: values.lastName,
           moniker: values.moniker,
           gender: values.gender,
         }));
+        
+        toast({
+            title: "Registration Successful!",
+            description: "You can now log in with your new account.",
+            className: "bg-green-50 border-green-200 text-green-700"
+        });
       }
-      // Redirect based on userType or to a confirmation page
+
       if (values.userType === "citizen") {
         router.push("/citizen/dashboard");
       } else {
-        // Potentially redirect officials to a pending approval page or their dashboard
-        router.push("/official/dashboard"); 
+        router.push("/official/dashboard");
       }
     }, 1500);
   }
@@ -219,7 +251,7 @@ export function SignUpForm() {
                       </SelectContent>
                     </Select>
                     <FormDescription>
-                      Officials may require verification.
+                      Officials may require verification in a real system.
                     </FormDescription>
                     <FormMessage />
                   </FormItem>

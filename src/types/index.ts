@@ -1,6 +1,5 @@
 
 import type { LucideIcon } from 'lucide-react';
-// No longer need Timestamp from 'firebase/firestore' here as we convert to string upon fetch for app use.
 
 export type NavItem = {
   title: string;
@@ -21,7 +20,22 @@ export type UserProfile = {
   email: string;
   role: UserRole;
   gender?: 'male' | 'female' | 'other';
-  // title is derived, not stored
+};
+
+// For localStorage mock registration
+export type MockRegisteredUser = {
+  email: string;
+  firstName: string;
+  lastName: string;
+  moniker: string;
+  gender?: 'male' | 'female' | 'other';
+  userType: UserRole;
+};
+
+export type AIUrgencyAssessment = {
+  urgency: 'Emergency' | 'High' | 'Medium' | 'Low' | 'Unknown';
+  reasoning: string;
+  confidence?: number;
 };
 
 export type Issue = {
@@ -36,6 +50,7 @@ export type Issue = {
     category: string;
     confidence: number;
   };
+  aiUrgencyAssessment?: AIUrgencyAssessment; // Added for new AI flow
   reportedById: string; // ID of the user who reported
   createdAt: string; // ISO string (converted from Firestore Timestamp)
   categoryManual?: string; // Manually selected category by user
@@ -58,7 +73,7 @@ export type ForumThread = {
 };
 
 export type EducationalContent = {
-  id: string; 
+  id: string;
   title: string;
   summary: string;
   fullContent?: string; // HTML content
