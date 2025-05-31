@@ -2,10 +2,11 @@
 'use server';
 
 import { db } from '@/lib/firebase-config';
-import type { Issue, AIUrgencyAssessment } from '@/types';
+import type { Issue, AIUrgencyAssessment, AISummary } from '@/types';
 import { collection, addDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import type { CategorizeIssueOutput } from '@/ai/flows/categorize-issue';
 import type { AssessIssueUrgencyOutput } from '@/ai/flows/assess-issue-urgency';
+import type { SummarizeIssueOutput } from '@/ai/flows/summarize-issue-flow';
 
 
 type IssueReportData = {
@@ -14,7 +15,8 @@ type IssueReportData = {
   location: string;
   categoryManual?: string;
   aiClassification?: CategorizeIssueOutput;
-  aiUrgencyAssessment?: AssessIssueUrgencyOutput; // Added
+  aiUrgencyAssessment?: AssessIssueUrgencyOutput;
+  aiSummary?: AISummary; // Added
   mediaUrls?: string[];
   status: Issue['status'];
   reportedById: string;
@@ -29,10 +31,10 @@ export async function saveIssueReport(
     description: string;
     location: string;
     categoryManual?: string;
-    // media?: FileList; // For actual upload, this would be URLs
   },
   aiCategorizationResult: CategorizeIssueOutput | null,
-  aiUrgencyResult: AssessIssueUrgencyOutput | null // Added
+  aiUrgencyResult: AssessIssueUrgencyOutput | null,
+  aiSummaryResult: SummarizeIssueOutput | null // Added
 ): Promise<{ success: boolean; error?: string; issueId?: string }> {
   try {
     const userId = 'mock_citizen_user_id'; // Placeholder
@@ -43,7 +45,8 @@ export async function saveIssueReport(
       location: formData.location,
       categoryManual: formData.categoryManual,
       aiClassification: aiCategorizationResult || undefined,
-      aiUrgencyAssessment: aiUrgencyResult || undefined, // Added
+      aiUrgencyAssessment: aiUrgencyResult || undefined,
+      aiSummary: aiSummaryResult || undefined, // Added
       mediaUrls: [], // Placeholder for actual media URLs
       status: 'Submitted',
       reportedById: userId,
@@ -63,3 +66,4 @@ export async function saveIssueReport(
     return { success: false, error: errorMessage };
   }
 }
+

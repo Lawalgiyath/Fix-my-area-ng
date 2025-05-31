@@ -38,6 +38,11 @@ export type AIUrgencyAssessment = {
   confidence?: number;
 };
 
+export type AISummary = {
+  summary: string;
+  confidence?: number;
+};
+
 export type Issue = {
   id: string; // Document ID from Firestore
   title: string;
@@ -50,7 +55,8 @@ export type Issue = {
     category: string;
     confidence: number;
   };
-  aiUrgencyAssessment?: AIUrgencyAssessment; // Added for new AI flow
+  aiUrgencyAssessment?: AIUrgencyAssessment;
+  aiSummary?: AISummary; // Added for AI generated summary
   reportedById: string; // ID of the user who reported
   createdAt: string; // ISO string (converted from Firestore Timestamp)
   categoryManual?: string; // Manually selected category by user
@@ -86,3 +92,4 @@ export type LanguageOption = {
   name: string;
   samplePhrases: { title: string; phrase: string }[];
 };
+

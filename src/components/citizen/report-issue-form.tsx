@@ -20,10 +20,11 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { useState } from "react";
 import { categorizeIssue, type CategorizeIssueOutput } from "@/ai/flows/categorize-issue";
 import { assessIssueUrgency, type AssessIssueUrgencyOutput } from "@/ai/flows/assess-issue-urgency";
+import { summarizeIssueDescription, type SummarizeIssueOutput } from "@/ai/flows/summarize-issue-flow"; // Added
 import { saveIssueReport } from "@/actions/issue-actions";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { CheckCircle, Info, Loader2, MapPin, UploadCloud, ShieldAlert } from "lucide-react";
+import { CheckCircle, Info, Loader2, MapPin, UploadCloud, ShieldAlert, FileText } from "lucide-react"; // Added FileText
 import { FORUM_CATEGORIES } from "@/lib/constants";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -40,6 +41,7 @@ export function ReportIssueForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [aiCategorizationResult, setAiCategorizationResult] = useState<CategorizeIssueOutput | null>(null);
   const [aiUrgencyResult, setAiUrgencyResult] = useState<AssessIssueUrgencyOutput | null>(null);
+  const [aiSummaryResult, setAiSummaryResult] = useState<SummarizeIssueOutput | null>(null); // Added
   const [submissionSuccess, setSubmissionSuccess] = useState(false);
   const { toast } = useToast();
 
@@ -59,11 +61,12 @@ export function ReportIssueForm() {
     setIsSubmitting(false);
     setAiCategorizationResult(null);
     setAiUrgencyResult(null);
+    setAiSummaryResult(null); // Added
     setSubmissionSuccess(false);
     let currentCategorization: CategorizeIssueOutput | null = null;
     let currentUrgency: AssessIssueUrgencyOutput | null = null;
+    let currentSummary: SummarizeIssueOutput | null = null; // Added
 
-    // Log selected file names (actual upload is not implemented here)
     if (values.media && values.media.length > 0) {
       const fileNames = Array.from(values.media).map(file => file.name).join(', ');
       console.log("Selected media files (names only):", fileNames);
@@ -74,26 +77,27 @@ export function ReportIssueForm() {
       });
     }
 
-
     try {
-      toast({ title: "Processing AI", description: "Analyzing your issue category and urgency..." });
+      toast({ title: "Processing AI", description: "Analyzing your issue category, urgency, and generating summary..." });
       
-      // Run AI flows in parallel
-      const [categorization, urgencyAssessment] = await Promise.all([
+      const [categorization, urgencyAssessment, summary] = await Promise.all([
         categorizeIssue({ reportContent: values.description }),
-        assessIssueUrgency({ issueTitle: values.title, issueDescription: values.description })
+        assessIssueUrgency({ issueTitle: values.title, issueDescription: values.description }),
+        summarizeIssueDescription({ issueTitle: values.title, issueDescription: values.description }) // Added
       ]);
 
       currentCategorization = categorization;
       currentUrgency = urgencyAssessment;
+      currentSummary = summary; // Added
       setAiCategorizationResult(currentCategorization);
       setAiUrgencyResult(currentUrgency);
+      setAiSummaryResult(currentSummary); // Added
       setIsProcessingAi(false);
 
       setIsSubmitting(true);
       toast({ title: "Submitting Report", description: "Saving your report..."});
 
-      const submissionResult = await saveIssueReport(values, currentCategorization, currentUrgency);
+      const submissionResult = await saveIssueReport(values, currentCategorization, currentUrgency, currentSummary); // Pass summary
 
       if (submissionResult.success) {
         setSubmissionSuccess(true);
@@ -108,15 +112,19 @@ export function ReportIssueForm() {
               {currentUrgency && (
                  <p className="mt-1">AI Urgency: <strong>{currentUrgency.urgency}</strong> - {currentUrgency.reasoning}</p>
               )}
+              {currentSummary && (
+                 <p className="mt-1 text-xs italic">AI Summary: {currentSummary.summary}</p>
+              )}
             </div>
           ),
           variant: "default",
           className: "bg-green-50 border-green-200 text-green-700",
-          duration: 7000,
+          duration: 9000,
         });
         form.reset();
         setAiCategorizationResult(null);
         setAiUrgencyResult(null);
+        setAiSummaryResult(null); // Clear summary
       } else {
         throw new Error(submissionResult.error || "Failed to save report to database.");
       }
@@ -142,7 +150,7 @@ export function ReportIssueForm() {
       <CardHeader>
         <CardTitle className="text-2xl font-bold text-primary">Report a New Issue</CardTitle>
         <CardDescription>
-          Help us improve our community. Provide details and our AI will help categorize and assess urgency.
+          Help us improve our community. Provide details and our AI will help categorize, assess urgency, and summarize.
         </CardDescription>
       </CardHeader>
       <Form {...form}>
@@ -281,6 +289,16 @@ export function ReportIssueForm() {
                     </AlertDescription>
                 </Alert>
             )}
+             {aiSummaryResult && !submissionSuccess && (
+                <Alert variant="default" className="bg-indigo-50 border-indigo-200 text-indigo-700">
+                    <FileText className="h-4 w-4" />
+                    <AlertTitle>AI Generated Summary</AlertTitle>
+                    <AlertDescription>
+                        {aiSummaryResult.summary}
+                        {aiSummaryResult.confidence && ` (${(aiSummaryResult.confidence * 100).toFixed(0)}% confident)`}
+                    </AlertDescription>
+                </Alert>
+            )}
 
 
             {submissionSuccess && (
@@ -294,6 +312,9 @@ export function ReportIssueForm() {
                     )}
                     {aiUrgencyResult && (
                         <p className="mt-1">AI Urgency: <strong>{aiUrgencyResult.urgency}</strong></p>
+                    )}
+                     {aiSummaryResult && (
+                        <p className="mt-1 text-xs italic">AI Summary: {aiSummaryResult.summary}</p>
                     )}
                     </AlertDescription>
               </Alert>
@@ -311,3 +332,4 @@ export function ReportIssueForm() {
     </Card>
   );
 }
+

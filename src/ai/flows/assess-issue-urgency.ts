@@ -21,8 +21,9 @@ const AssessIssueUrgencyInputSchema = z.object({
 export type AssessIssueUrgencyInput = z.infer<typeof AssessIssueUrgencyInputSchema>;
 
 // Use the existing AIUrgencyAssessment for the output schema definition
+const VALID_URGENCIES = ['Emergency', 'High', 'Medium', 'Low', 'Unknown'] as const;
 const AssessIssueUrgencyOutputSchema = z.object({
-  urgency: z.enum(['Emergency', 'High', 'Medium', 'Low', 'Unknown'])
+  urgency: z.enum(VALID_URGENCIES)
     .describe('The assessed urgency level of the issue. Options: Emergency, High, Medium, Low, Unknown.'),
   reasoning: z.string().describe('A brief explanation for the assessed urgency level.'),
   confidence: z.number().min(0).max(1).optional().describe('A confidence score (0-1) for the urgency assessment, if available.'),
@@ -52,9 +53,10 @@ const prompt = ai.definePrompt({
   Issue Description: {{{issueDescription}}}
 
   Provide the urgency level, a brief reasoning for your assessment, and an optional confidence score.
+  Ensure your output strictly adheres to one of the predefined urgency levels: ${VALID_URGENCIES.join(', ')}.
   `,
   config: {
-    safetySettings: [ // Add safety settings if needed, e.g., for sensitive content
+    safetySettings: [ 
       {
         category: 'HARM_CATEGORY_DANGEROUS_CONTENT',
         threshold: 'BLOCK_MEDIUM_AND_ABOVE',
@@ -71,15 +73,16 @@ const assessIssueUrgencyFlow = ai.defineFlow(
   },
   async input => {
     const {output} = await prompt(input);
-    // Ensure the output matches the schema, especially the enum for urgency
     if (!output) {
         return { urgency: 'Unknown', reasoning: 'AI model did not return a valid assessment.', confidence: 0 };
     }
-    const validUrgencies = ['Emergency', 'High', 'Medium', 'Low', 'Unknown'];
-    if (!validUrgencies.includes(output.urgency)) {
+    // Ensure the output.urgency is one of the valid enum values. Zod validation on output usually handles this.
+    // However, an explicit check can be a fallback.
+    if (!VALID_URGENCIES.includes(output.urgency as any)) { // Cast as any if TS complains, Zod should've caught this
         console.warn(`AI returned invalid urgency: ${output.urgency}. Defaulting to Unknown.`);
         return { ...output, urgency: 'Unknown', reasoning: output.reasoning || "AI returned an invalid urgency level."  };
     }
     return output;
   }
 );
+

@@ -7,7 +7,7 @@ import { doc, getDoc, Timestamp } from 'firebase/firestore';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { AlertCircle, CheckCircle, Clock, MapPin, Tag, User, CalendarDays, MessageSquare, ArrowLeft, Info, ShieldAlert, Edit, FileText, UserCheck, Users, Brain } from 'lucide-react';
+import { AlertCircle, CheckCircle, Clock, MapPin, Tag, User, CalendarDays, MessageSquare, ArrowLeft, Info, ShieldAlert, Edit, FileText, UserCheck, Users, Brain, ClipboardList } from 'lucide-react'; // Added ClipboardList
 import Link from 'next/link';
 import Image from 'next/image';
 import { notFound } from 'next/navigation';
@@ -114,6 +114,18 @@ export default async function OfficialIssueDetailPage({ params }: { params: { is
             </div>
           </section>
           
+          {issue.aiSummary && (
+            <section>
+                <h3 className="text-lg font-semibold text-primary mb-2 flex items-center"><ClipboardList className="mr-2 h-5 w-5"/>AI Generated Summary</h3>
+                <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-md text-sm text-indigo-800 italic">
+                    <p>{issue.aiSummary.summary}</p>
+                    {issue.aiSummary.confidence && (
+                        <p className="text-xs mt-1">Confidence: {(issue.aiSummary.confidence * 100).toFixed(0)}%</p>
+                    )}
+                </div>
+            </section>
+          )}
+
           <section>
             <h3 className="text-lg font-semibold text-primary mb-3">Key Details</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 text-sm border p-4 rounded-md">
@@ -223,3 +235,4 @@ export default async function OfficialIssueDetailPage({ params }: { params: { is
     </div>
   );
 }
+
