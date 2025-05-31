@@ -17,14 +17,14 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { useState } from "react";
+import React, { useState } from "react"; // Added React for useState type
 import { categorizeIssue, type CategorizeIssueOutput } from "@/ai/flows/categorize-issue";
 import { assessIssueUrgency, type AssessIssueUrgencyOutput } from "@/ai/flows/assess-issue-urgency";
-import { summarizeIssueDescription, type SummarizeIssueOutput } from "@/ai/flows/summarize-issue-flow"; // Added
+import { summarizeIssueDescription, type SummarizeIssueOutput } from "@/ai/flows/summarize-issue-flow";
 import { saveIssueReport } from "@/actions/issue-actions";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { CheckCircle, Info, Loader2, MapPin, UploadCloud, ShieldAlert, FileText } from "lucide-react"; // Added FileText
+import { CheckCircle, Info, Loader2, MapPin, UploadCloud, ShieldAlert, FileText, Paperclip } from "lucide-react"; // Added Paperclip
 import { FORUM_CATEGORIES } from "@/lib/constants";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -41,8 +41,9 @@ export function ReportIssueForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [aiCategorizationResult, setAiCategorizationResult] = useState<CategorizeIssueOutput | null>(null);
   const [aiUrgencyResult, setAiUrgencyResult] = useState<AssessIssueUrgencyOutput | null>(null);
-  const [aiSummaryResult, setAiSummaryResult] = useState<SummarizeIssueOutput | null>(null); // Added
+  const [aiSummaryResult, setAiSummaryResult] = useState<SummarizeIssueOutput | null>(null);
   const [submissionSuccess, setSubmissionSuccess] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]); // To display selected file names
   const { toast } = useToast();
 
   const form = useForm<z.infer<typeof reportIssueSchema>>({
@@ -61,20 +62,16 @@ export function ReportIssueForm() {
     setIsSubmitting(false);
     setAiCategorizationResult(null);
     setAiUrgencyResult(null);
-    setAiSummaryResult(null); // Added
+    setAiSummaryResult(null);
     setSubmissionSuccess(false);
     let currentCategorization: CategorizeIssueOutput | null = null;
     let currentUrgency: AssessIssueUrgencyOutput | null = null;
-    let currentSummary: SummarizeIssueOutput | null = null; // Added
+    let currentSummary: SummarizeIssueOutput | null = null;
 
     if (values.media && values.media.length > 0) {
       const fileNames = Array.from(values.media).map(file => file.name).join(', ');
       console.log("Selected media files (names only):", fileNames);
-      toast({
-        title: "Media Files Selected",
-        description: `Selected: ${fileNames}. (Note: Actual cloud upload is a future enhancement for this prototype.)`,
-        className: "bg-blue-50 border-blue-200 text-blue-700"
-      });
+      // Toast about selection is good, but UI display of names is more persistent
     }
 
     try {
@@ -83,21 +80,29 @@ export function ReportIssueForm() {
       const [categorization, urgencyAssessment, summary] = await Promise.all([
         categorizeIssue({ reportContent: values.description }),
         assessIssueUrgency({ issueTitle: values.title, issueDescription: values.description }),
-        summarizeIssueDescription({ issueTitle: values.title, issueDescription: values.description }) // Added
+        summarizeIssueDescription({ issueTitle: values.title, issueDescription: values.description })
       ]);
 
       currentCategorization = categorization;
       currentUrgency = urgencyAssessment;
-      currentSummary = summary; // Added
+      currentSummary = summary;
       setAiCategorizationResult(currentCategorization);
       setAiUrgencyResult(currentUrgency);
-      setAiSummaryResult(currentSummary); // Added
+      setAiSummaryResult(currentSummary);
       setIsProcessingAi(false);
 
       setIsSubmitting(true);
       toast({ title: "Submitting Report", description: "Saving your report..."});
 
-      const submissionResult = await saveIssueReport(values, currentCategorization, currentUrgency, currentSummary); // Pass summary
+      // For the MVP, mediaUrls will be empty as we are not uploading.
+      // In a full implementation, `values.media` would be uploaded here,
+      // and their URLs passed to saveIssueReport.
+      const submissionResult = await saveIssueReport(
+        { title: values.title, description: values.description, location: values.location, categoryManual: values.categoryManual },
+        currentCategorization,
+        currentUrgency,
+        currentSummary
+      );
 
       if (submissionResult.success) {
         setSubmissionSuccess(true);
@@ -115,6 +120,9 @@ export function ReportIssueForm() {
               {currentSummary && (
                  <p className="mt-1 text-xs italic">AI Summary: {currentSummary.summary}</p>
               )}
+              {selectedFiles.length > 0 && (
+                <p className="mt-1 text-xs">Selected files: {selectedFiles.map(f => f.name).join(', ')} (Upload not implemented in MVP)</p>
+              )}
             </div>
           ),
           variant: "default",
@@ -122,9 +130,10 @@ export function ReportIssueForm() {
           duration: 9000,
         });
         form.reset();
+        setSelectedFiles([]); // Clear selected files
         setAiCategorizationResult(null);
         setAiUrgencyResult(null);
-        setAiSummaryResult(null); // Clear summary
+        setAiSummaryResult(null);
       } else {
         throw new Error(submissionResult.error || "Failed to save report to database.");
       }
@@ -142,6 +151,25 @@ export function ReportIssueForm() {
       setIsSubmitting(false);
     }
   }
+
+  const handleMediaChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files) {
+      const filesArray = Array.from(event.target.files);
+      setSelectedFiles(filesArray);
+      form.setValue("media", event.target.files); // Keep RHF updated
+       if (filesArray.length > 0) {
+        toast({
+            title: "Files Selected",
+            description: `${filesArray.length} file(s) selected. (Note: Actual cloud upload is a future enhancement for this prototype.)`,
+            className: "bg-blue-50 border-blue-200 text-blue-700",
+            duration: 5000,
+        });
+      }
+    } else {
+      setSelectedFiles([]);
+      form.setValue("media", null);
+    }
+  };
 
   const isLoading = isProcessingAi || isSubmitting;
 
@@ -244,7 +272,7 @@ export function ReportIssueForm() {
             <FormField
               control={form.control}
               name="media"
-              render={({ field: { onChange, onBlur, name, ref } }) => (
+              render={({ field }) => ( // Removed RHF field.onChange, onBlur, name, ref to use custom handler
                 <FormItem>
                   <FormLabel className="flex items-center">
                      <UploadCloud className="mr-2 h-4 w-4 text-muted-foreground" /> Attach Media (Optional)
@@ -252,19 +280,32 @@ export function ReportIssueForm() {
                   <FormControl>
                     <Input
                       type="file"
-                      accept="image/*,video/*"
+                      accept="image/*,video/*" // Consider more specific types if needed
                       multiple
-                      name={name}
-                      onBlur={onBlur}
-                      onChange={(e) => {
-                        const files = e.target.files;
-                        onChange(files && files.length > 0 ? files : null);
-                      }}
-                      ref={ref}
+                      onChange={handleMediaChange} // Use custom handler
                       disabled={isLoading || submissionSuccess}
+                      className="block w-full text-sm text-slate-500
+                        file:mr-4 file:py-2 file:px-4
+                        file:rounded-full file:border-0
+                        file:text-sm file:font-semibold
+                        file:bg-primary/10 file:text-primary
+                        hover:file:bg-primary/20"
                     />
                   </FormControl>
-                  <FormDescription>Upload photos/videos. (Note: Cloud upload is a future feature; for now, file names are logged.)</FormDescription>
+                  {selectedFiles.length > 0 && (
+                    <div className="mt-2 text-sm text-muted-foreground">
+                      <p className="font-medium text-foreground">Selected files:</p>
+                      <ul className="list-disc list-inside pl-4">
+                        {selectedFiles.map((file, index) => (
+                          <li key={index} className="truncate">
+                            <Paperclip className="inline-block h-3 w-3 mr-1" />
+                            {file.name} ({(file.size / 1024).toFixed(1)} KB)
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  <FormDescription>Upload photos/videos. (Cloud upload is a future feature; only file names are noted for this MVP.)</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -332,4 +373,3 @@ export function ReportIssueForm() {
     </Card>
   );
 }
-
