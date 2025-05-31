@@ -6,7 +6,7 @@ import {
   ListChecks,
   MessagesSquare,
   BookOpen,
-  Users, // Removed Bot
+  Users, 
   Shield,
   Car,
   Trash2,
@@ -19,7 +19,7 @@ import {
   Gavel,
   BarChart3,
   Info,
-  FileText // Added FileText
+  FileText 
 } from 'lucide-react';
 
 export const APP_NAME = "Fix My Area NG";
@@ -210,11 +210,39 @@ export const MOCK_ISSUES: Issue[] = [
   // Cleared mock issues. The application will show an empty state or fetch from DB.
 ];
 
+export const LOCAL_STORAGE_FORUM_THREADS_KEY = 'civicconnect_forum_threads';
+
 export const MOCK_THREADS: Record<string, ForumThread[]> = {
-  'roads-transport': [],
-  'waste-management': [],
+  'roads-transport': [
+    {
+        id: 'roads-1',
+        title: 'Pothole on Elm Street needs urgent repair!',
+        author: 'ConcernedCitizen12',
+        authorFirstName: 'John',
+        categorySlug: 'roads-transport',
+        contentPreview: 'There is a massive pothole near the junction of Elm Street and Oak Avenue. It has been there for weeks and is causing damage to vehicles. Requesting immediate attention.',
+        repliesCount: 3,
+        lastReply: '3 hours ago',
+        createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), // 2 days ago
+    }
+  ],
+  'waste-management': [
+      {
+        id: 'waste-1',
+        title: 'Overflowing bins in City Park',
+        author: 'ParkLover22',
+        authorFirstName: 'Aisha',
+        categorySlug: 'waste-management',
+        contentPreview: 'The public bins in City Park, especially near the playground, are constantly overflowing. This is unsanitary and attracts pests. Can we have more frequent collections or larger bins?',
+        repliesCount: 5,
+        lastReply: 'Yesterday',
+        createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(), // 5 days ago
+    }
+  ],
   'electricity': [],
   'water': [],
   'security': [],
   'other': [],
 };
+
+    
