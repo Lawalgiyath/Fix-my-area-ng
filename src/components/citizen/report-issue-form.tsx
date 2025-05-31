@@ -17,16 +17,19 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import React, { useState } from "react"; // Added React for useState type
+import React, { useState } from "react";
 import { categorizeIssue, type CategorizeIssueOutput } from "@/ai/flows/categorize-issue";
 import { assessIssueUrgency, type AssessIssueUrgencyOutput } from "@/ai/flows/assess-issue-urgency";
 import { summarizeIssueDescription, type SummarizeIssueOutput } from "@/ai/flows/summarize-issue-flow";
 import { saveIssueReport } from "@/actions/issue-actions";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { CheckCircle, Info, Loader2, MapPin, UploadCloud, ShieldAlert, FileText, Paperclip } from "lucide-react"; // Added Paperclip
+import { CheckCircle, Info, Loader2, MapPin, UploadCloud, ShieldAlert, FileText, Paperclip } from "lucide-react";
 import { FORUM_CATEGORIES } from "@/lib/constants";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+import { storage } from "@/lib/firebase-config"; // Import Firebase storage instance
+import { ref as storageRef, uploadBytesResumable, getDownloadURL } from "firebase/storage"; // Firebase storage functions
 
 const reportIssueSchema = z.object({
   title: z.string().min(5, { message: "Title must be at least 5 characters." }).max(100),
@@ -37,13 +40,14 @@ const reportIssueSchema = z.object({
 });
 
 export function ReportIssueForm() {
+  const [isUploadingMedia, setIsUploadingMedia] = useState(false);
   const [isProcessingAi, setIsProcessingAi] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmittingDb, setIsSubmittingDb] = useState(false);
   const [aiCategorizationResult, setAiCategorizationResult] = useState<CategorizeIssueOutput | null>(null);
   const [aiUrgencyResult, setAiUrgencyResult] = useState<AssessIssueUrgencyOutput | null>(null);
   const [aiSummaryResult, setAiSummaryResult] = useState<SummarizeIssueOutput | null>(null);
   const [submissionSuccess, setSubmissionSuccess] = useState(false);
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]); // To display selected file names
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const { toast } = useToast();
 
   const form = useForm<z.infer<typeof reportIssueSchema>>({
@@ -58,8 +62,9 @@ export function ReportIssueForm() {
   });
 
   async function onSubmit(values: z.infer<typeof reportIssueSchema>) {
-    setIsProcessingAi(true);
-    setIsSubmitting(false);
+    setIsUploadingMedia(false);
+    setIsProcessingAi(false);
+    setIsSubmittingDb(false);
     setAiCategorizationResult(null);
     setAiUrgencyResult(null);
     setAiSummaryResult(null);
@@ -67,15 +72,37 @@ export function ReportIssueForm() {
     let currentCategorization: CategorizeIssueOutput | null = null;
     let currentUrgency: AssessIssueUrgencyOutput | null = null;
     let currentSummary: SummarizeIssueOutput | null = null;
-
-    if (values.media && values.media.length > 0) {
-      const fileNames = Array.from(values.media).map(file => file.name).join(', ');
-      console.log("Selected media files (names only):", fileNames);
-      // Toast about selection is good, but UI display of names is more persistent
-    }
+    let uploadedMediaUrls: string[] = [];
 
     try {
-      toast({ title: "Processing AI", description: "Analyzing your issue category, urgency, and generating summary..." });
+      // 1. Media Upload (if any)
+      if (selectedFiles.length > 0) {
+        setIsUploadingMedia(true);
+        toast({ title: "Uploading Media", description: `Uploading ${selectedFiles.length} file(s)...` });
+        const uploadPromises = selectedFiles.map(file => {
+          const filePath = `issues/${Date.now()}_${file.name}`;
+          const fileRef = storageRef(storage, filePath);
+          const uploadTask = uploadBytesResumable(fileRef, file);
+          return new Promise<string>((resolve, reject) => {
+            uploadTask.on(
+              "state_changed",
+              null, // We can add a progress handler here if needed
+              (error) => reject(error),
+              async () => {
+                const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+                resolve(downloadURL);
+              }
+            );
+          });
+        });
+        uploadedMediaUrls = await Promise.all(uploadPromises);
+        setIsUploadingMedia(false);
+        toast({ title: "Media Uploaded", description: "All files uploaded successfully.", className: "bg-blue-50 border-blue-200 text-blue-700" });
+      }
+
+      // 2. AI Processing
+      setIsProcessingAi(true);
+      toast({ title: "Processing AI", description: "Analyzing issue category, urgency, and summary..." });
       
       const [categorization, urgencyAssessment, summary] = await Promise.all([
         categorizeIssue({ reportContent: values.description }),
@@ -91,17 +118,16 @@ export function ReportIssueForm() {
       setAiSummaryResult(currentSummary);
       setIsProcessingAi(false);
 
-      setIsSubmitting(true);
-      toast({ title: "Submitting Report", description: "Saving your report..."});
+      // 3. Database Submission
+      setIsSubmittingDb(true);
+      toast({ title: "Submitting Report", description: "Saving your report to the database..."});
 
-      // For the MVP, mediaUrls will be empty as we are not uploading.
-      // In a full implementation, `values.media` would be uploaded here,
-      // and their URLs passed to saveIssueReport.
       const submissionResult = await saveIssueReport(
         { title: values.title, description: values.description, location: values.location, categoryManual: values.categoryManual },
         currentCategorization,
         currentUrgency,
-        currentSummary
+        currentSummary,
+        uploadedMediaUrls // Pass uploaded URLs
       );
 
       if (submissionResult.success) {
@@ -120,8 +146,8 @@ export function ReportIssueForm() {
               {currentSummary && (
                  <p className="mt-1 text-xs italic">AI Summary: {currentSummary.summary}</p>
               )}
-              {selectedFiles.length > 0 && (
-                <p className="mt-1 text-xs">Selected files: {selectedFiles.map(f => f.name).join(', ')} (Upload not implemented in MVP)</p>
+              {uploadedMediaUrls.length > 0 && (
+                <p className="mt-1 text-xs">{uploadedMediaUrls.length} media file(s) attached.</p>
               )}
             </div>
           ),
@@ -130,7 +156,7 @@ export function ReportIssueForm() {
           duration: 9000,
         });
         form.reset();
-        setSelectedFiles([]); // Clear selected files
+        setSelectedFiles([]);
         setAiCategorizationResult(null);
         setAiUrgencyResult(null);
         setAiSummaryResult(null);
@@ -147,23 +173,37 @@ export function ReportIssueForm() {
         variant: "destructive",
       });
     } finally {
+      setIsUploadingMedia(false);
       setIsProcessingAi(false);
-      setIsSubmitting(false);
+      setIsSubmittingDb(false);
     }
   }
 
   const handleMediaChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
       const filesArray = Array.from(event.target.files);
-      setSelectedFiles(filesArray);
-      form.setValue("media", event.target.files); // Keep RHF updated
-       if (filesArray.length > 0) {
+      // Limit to 5 files for demo purposes
+      const limitedFiles = filesArray.slice(0, 5);
+      setSelectedFiles(limitedFiles);
+      // Create a new FileList for the form
+      const dataTransfer = new DataTransfer();
+      limitedFiles.forEach(file => dataTransfer.items.add(file));
+      form.setValue("media", dataTransfer.files);
+
+       if (limitedFiles.length > 0) {
         toast({
             title: "Files Selected",
-            description: `${filesArray.length} file(s) selected. (Note: Actual cloud upload is a future enhancement for this prototype.)`,
+            description: `${limitedFiles.length} file(s) selected. Max 5 files.`,
             className: "bg-blue-50 border-blue-200 text-blue-700",
             duration: 5000,
         });
+      }
+      if (filesArray.length > 5) {
+        toast({
+          title: "File Limit Exceeded",
+          description: "You can select a maximum of 5 files. Only the first 5 were kept.",
+          variant: "destructive"
+        })
       }
     } else {
       setSelectedFiles([]);
@@ -171,14 +211,20 @@ export function ReportIssueForm() {
     }
   };
 
-  const isLoading = isProcessingAi || isSubmitting;
+  const isLoading = isUploadingMedia || isProcessingAi || isSubmittingDb;
+  let buttonText = "Submit Report";
+  if (isUploadingMedia) buttonText = "Uploading Media...";
+  else if (isProcessingAi) buttonText = "Analyzing Issue...";
+  else if (isSubmittingDb) buttonText = "Saving Report...";
+  if (submissionSuccess) buttonText = "Report Another Issue";
+
 
   return (
     <Card className="w-full max-w-2xl mx-auto shadow-xl">
       <CardHeader>
         <CardTitle className="text-2xl font-bold text-primary">Report a New Issue</CardTitle>
         <CardDescription>
-          Help us improve our community. Provide details and our AI will help categorize, assess urgency, and summarize.
+          Help us improve our community. Provide details, attach media (up to 5 files), and our AI will assist.
         </CardDescription>
       </CardHeader>
       <Form {...form}>
@@ -272,17 +318,17 @@ export function ReportIssueForm() {
             <FormField
               control={form.control}
               name="media"
-              render={({ field }) => ( // Removed RHF field.onChange, onBlur, name, ref to use custom handler
+              render={({ field }) => ( 
                 <FormItem>
                   <FormLabel className="flex items-center">
-                     <UploadCloud className="mr-2 h-4 w-4 text-muted-foreground" /> Attach Media (Optional)
+                     <UploadCloud className="mr-2 h-4 w-4 text-muted-foreground" /> Attach Media (Optional, Max 5 files)
                   </FormLabel>
                   <FormControl>
                     <Input
                       type="file"
-                      accept="image/*,video/*" // Consider more specific types if needed
+                      accept="image/*,video/*" 
                       multiple
-                      onChange={handleMediaChange} // Use custom handler
+                      onChange={handleMediaChange} 
                       disabled={isLoading || submissionSuccess}
                       className="block w-full text-sm text-slate-500
                         file:mr-4 file:py-2 file:px-4
@@ -305,7 +351,7 @@ export function ReportIssueForm() {
                       </ul>
                     </div>
                   )}
-                  <FormDescription>Upload photos/videos. (Cloud upload is a future feature; only file names are noted for this MVP.)</FormDescription>
+                  <FormDescription>Upload photos or videos to help illustrate the issue.</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -365,7 +411,7 @@ export function ReportIssueForm() {
           <CardFooter>
             <Button type="submit" className="w-full" disabled={isLoading || submissionSuccess}>
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {submissionSuccess ? "Report Another Issue" : (isProcessingAi ? "Analyzing Issue..." : (isSubmitting ? "Submitting..." : "Submit Report"))}
+              {buttonText}
             </Button>
           </CardFooter>
         </form>

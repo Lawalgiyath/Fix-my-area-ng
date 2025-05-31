@@ -16,8 +16,8 @@ type IssueReportData = {
   categoryManual?: string;
   aiClassification?: CategorizeIssueOutput;
   aiUrgencyAssessment?: AssessIssueUrgencyOutput;
-  aiSummary?: AISummary; // Added
-  mediaUrls?: string[];
+  aiSummary?: AISummary; 
+  mediaUrls?: string[]; // Now expected from the form
   status: Issue['status'];
   reportedById: string;
   dateReported: string;
@@ -34,7 +34,8 @@ export async function saveIssueReport(
   },
   aiCategorizationResult: CategorizeIssueOutput | null,
   aiUrgencyResult: AssessIssueUrgencyOutput | null,
-  aiSummaryResult: SummarizeIssueOutput | null // Added
+  aiSummaryResult: SummarizeIssueOutput | null,
+  mediaUrls: string[] // Added mediaUrls parameter
 ): Promise<{ success: boolean; error?: string; issueId?: string }> {
   try {
     const userId = 'mock_citizen_user_id'; // Placeholder
@@ -46,8 +47,8 @@ export async function saveIssueReport(
       categoryManual: formData.categoryManual,
       aiClassification: aiCategorizationResult || undefined,
       aiUrgencyAssessment: aiUrgencyResult || undefined,
-      aiSummary: aiSummaryResult || undefined, // Added
-      mediaUrls: [], // Placeholder for actual media URLs
+      aiSummary: aiSummaryResult || undefined,
+      mediaUrls: mediaUrls, // Use passed mediaUrls
       status: 'Submitted',
       reportedById: userId,
       dateReported: new Date().toISOString(),
@@ -66,4 +67,3 @@ export async function saveIssueReport(
     return { success: false, error: errorMessage };
   }
 }
-
