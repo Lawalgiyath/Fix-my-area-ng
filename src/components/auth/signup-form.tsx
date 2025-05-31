@@ -3,7 +3,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,11 +21,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, ShieldCheck } from "lucide-react";
 import type { MockRegisteredUser, UserRole } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 
-const signUpFormSchema = z.object({
+const signUpFormSchemaBase = z.object({
   firstName: z.string().min(2, { message: "First name must be at least 2 characters." }),
   lastName: z.string().min(2, { message: "Last name must be at least 2 characters." }),
   moniker: z.string().min(3, { message: "Moniker must be at least 3 characters." }).max(20, { message: "Moniker cannot exceed 20 characters." }),
@@ -34,11 +34,27 @@ const signUpFormSchema = z.object({
   confirmPassword: z.string().min(6, { message: "Password must be at least 6 characters." }),
   gender: z.enum(["male", "female", "other"], { required_error: "Please select your gender."}),
   userType: z.enum(["citizen", "official"] as [UserRole, ...UserRole[]], { required_error: "Please select your user type."}),
+  officialId: z.string().optional(), // Made optional here, will be refined
   rememberMe: z.boolean().optional(),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: "Passwords don't match",
-  path: ["confirmPassword"],
 });
+
+const signUpFormSchema = signUpFormSchemaBase.superRefine((data, ctx) => {
+  if (data.password !== data.confirmPassword) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Passwords don't match",
+      path: ["confirmPassword"],
+    });
+  }
+  if (data.userType === "official" && (!data.officialId || data.officialId.trim() === "")) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Official ID is required for government officials.",
+      path: ["officialId"],
+    });
+  }
+});
+
 
 export function SignUpForm() {
   const router = useRouter();
@@ -56,8 +72,14 @@ export function SignUpForm() {
       confirmPassword: "",
       gender: undefined,
       userType: "citizen",
+      officialId: "",
       rememberMe: false,
     },
+  });
+
+  const userTypeValue = useWatch({
+    control: form.control,
+    name: "userType",
   });
 
   function onSubmit(values: z.infer<typeof signUpFormSchema>) {
@@ -67,7 +89,6 @@ export function SignUpForm() {
     setTimeout(() => {
       setIsLoading(false);
       if (typeof window !== 'undefined') {
-        // Mock registration: Save to localStorage
         let registeredUsers: MockRegisteredUser[] = JSON.parse(localStorage.getItem('mockRegisteredUsers') || '[]');
         const existingUser = registeredUsers.find(user => user.email === values.email);
 
@@ -87,11 +108,11 @@ export function SignUpForm() {
           moniker: values.moniker,
           gender: values.gender,
           userType: values.userType,
+          ...(values.userType === "official" && { officialId: values.officialId }),
         };
         registeredUsers.push(newUser);
         localStorage.setItem('mockRegisteredUsers', JSON.stringify(registeredUsers));
 
-        // Store current user details for immediate "logged-in" state after signup
         localStorage.setItem('mockUser', JSON.stringify({
           firstName: values.firstName,
           lastName: values.lastName,
@@ -101,7 +122,7 @@ export function SignUpForm() {
         
         toast({
             title: "Registration Successful!",
-            description: "You can now log in with your new account.",
+            description: `Your ${values.userType} account has been created. You can now log in.`,
             className: "bg-green-50 border-green-200 text-green-700"
         });
       }
@@ -250,14 +271,34 @@ export function SignUpForm() {
                         <SelectItem value="official">Government Official</SelectItem>
                       </SelectContent>
                     </Select>
-                    <FormDescription>
-                      Officials may require verification in a real system.
-                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
               />
             </div>
+
+            {userTypeValue === "official" && (
+              <FormField
+                control={form.control}
+                name="officialId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="flex items-center">
+                      <ShieldCheck className="mr-2 h-4 w-4 text-muted-foreground" />
+                      Official ID / Verification Code
+                    </FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter your official identification" {...field} />
+                    </FormControl>
+                    <FormDescription>
+                      This ID will be used for verification purposes (simulated for MVP).
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+
             <FormField
               control={form.control}
               name="rememberMe"
@@ -286,3 +327,4 @@ export function SignUpForm() {
     </Card>
   );
 }
+

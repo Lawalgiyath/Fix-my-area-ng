@@ -30,6 +30,7 @@ export type MockRegisteredUser = {
   moniker: string;
   gender?: 'male' | 'female' | 'other';
   userType: UserRole;
+  officialId?: string; // Added for official verification simulation
 };
 
 export type AIUrgencyAssessment = {
@@ -84,7 +85,7 @@ export type EducationalContent = {
   summary: string;
   fullContent?: string; // HTML content
   icon: LucideIcon;
-  dataAiHint?: string; // For placeholder image context
+  dataAiHint?: string;
 };
 
 export type LanguageOption = {
