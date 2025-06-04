@@ -40,8 +40,13 @@ async function getCitizenIssues(): Promise<Issue[]> {
       } as Issue);
     });
     return issues;
-  } catch (error) {
-    console.error("Error fetching citizen issues:", error);
+  } catch (error: any) {
+    if (error.code === 'permission-denied') {
+      console.error("Firebase Permission Error in getCitizenIssues: ", error.message);
+      console.error("ACTION REQUIRED: Please check your Firestore Security Rules in the Firebase console. The current rules are preventing data from being fetched for the 'issues' collection.");
+    } else {
+      console.error("Error fetching citizen issues:", error);
+    }
     return []; // Return empty array on error
   }
 }
@@ -58,7 +63,7 @@ export default async function MyReportsPage() {
           <Frown className="h-5 w-5 text-primary" />
           <AlertTitle className="text-primary font-semibold">No Reports Found</AlertTitle>
           <AlertDescription className="text-foreground/80">
-            You haven&apos;t reported any issues yet, or there are no issues matching the current filters.
+            You haven&apos;t reported any issues yet, or there was an issue fetching your reports (check console for details).
             When you report an issue, it will appear here.
           </AlertDescription>
         </Alert>
