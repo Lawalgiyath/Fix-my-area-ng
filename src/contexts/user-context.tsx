@@ -9,7 +9,6 @@ import { getAppUserProfileFirestore, logoutUser as logoutUserAction } from '@/ac
 import { Loader2 } from 'lucide-react';
 import { LOCAL_STORAGE_KEYS, PLACEHOLDER_ERROR_DATE_ISO } from '@/lib/constants';
 
-// Declare firebaseAuthInstance at module level but initialize as null
 let firebaseAuthInstanceInternal: Auth | null = null;
 
 type UserContextType = {
@@ -17,7 +16,7 @@ type UserContextType = {
   setCurrentUser: Dispatch<SetStateAction<AppUser | null>>;
   loadingAuth: boolean;
   logout: () => Promise<{success: boolean, error?: string}>;
-  reloadUserProfile: (uidToLoad?: string | null) => Promise<void>;
+  reloadUserProfile: (uidToLoad?: string | null) => Promise<AppUser | null>; // Changed return type
 };
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -42,19 +41,20 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [loadingAuth, setLoadingAuth] = useState(true);
   const [currentFirebaseUid, setCurrentFirebaseUid] = useState<string | null>(null);
 
-  const reloadUserProfile = async (uidToLoad?: string | null) => {
+  const reloadUserProfile = async (uidToLoad?: string | null): Promise<AppUser | null> => {
     const targetUid = uidToLoad || currentFirebaseUid;
     console.log(`[UserContext-reloadUserProfile] Reloading profile for UID: ${targetUid}`);
     if (!targetUid) {
       setCurrentUserInternal(null);
       setLoadingAuth(false);
       console.log(`[UserContext-reloadUserProfile] No target UID, user set to null, loadingAuth false.`);
-      return;
+      return null; // Return null
     }
     setLoadingAuth(true);
+    let appUser: AppUser | null = null;
     try {
       const profileData = await getAppUserProfileFirestore(targetUid);
-      const appUser = convertProfileToAppUser(profileData, targetUid);
+      appUser = convertProfileToAppUser(profileData, targetUid);
       setCurrentUserInternal(appUser);
       console.log(`[UserContext-reloadUserProfile] Profile reloaded:`, appUser);
       if (!appUser && process.env.NEXT_PUBLIC_USE_MOCK_AUTH !== 'true') {
@@ -62,10 +62,12 @@ export function UserProvider({ children }: { children: ReactNode }) {
       }
     } catch (error) {
         console.error(`[UserContext-reloadUserProfile] Error reloading profile for UID ${targetUid}:`, error);
-        setCurrentUserInternal(null);
+        setCurrentUserInternal(null); // Ensure context user is null on error
+        appUser = null; // Ensure returned user is null on error
     } finally {
         setLoadingAuth(false);
     }
+    return appUser; // Return the loaded user (or null)
   };
 
 
@@ -80,7 +82,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       setCurrentFirebaseUid(mockUserUid);
       if (mockUserUid) {
         console.log(`[${effectId}] Found mock user UID in LS: ${mockUserUid}. Fetching profile.`);
-        reloadUserProfile(mockUserUid);
+        reloadUserProfile(mockUserUid); // This will set currentUserInternal
       } else {
         console.log(`[${effectId}] No mock user UID in LS. No user initially loaded.`);
         setCurrentUserInternal(null);
@@ -90,29 +92,36 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
 
     // Firebase Auth Path
-    // Initialize firebaseAuthInstanceInternal *here*, only if not in mock mode and app exists
     if (app) {
       firebaseAuthInstanceInternal = getAuth(app);
     } else {
-      console.warn("[UserContext] Firebase app is not initialized. Firebase Auth will be unavailable. Ensure Firebase is configured if not using mock auth.");
+      console.warn("[UserContext] Firebase app is not initialized (firebase-config.ts). Firebase Auth will be unavailable if not in mock auth mode.");
       setLoadingAuth(false);
       setCurrentUserInternal(null);
       setCurrentFirebaseUid(null);
-      return; // Can't proceed without Firebase app
+      return; 
+    }
+    
+    if (!firebaseAuthInstanceInternal) {
+        console.warn("[UserContext] firebaseAuthInstanceInternal is null after attempting initialization. Firebase Auth unavailable.");
+        setLoadingAuth(false);
+        setCurrentUserInternal(null);
+        setCurrentFirebaseUid(null);
+        return;
     }
 
-    // Now firebaseAuthInstanceInternal is guaranteed to be initialized if app existed and not in mock mode
     const unsubscribe = onAuthStateChanged(firebaseAuthInstanceInternal, async (firebaseUser: FirebaseUser | null) => {
       const authChangeId = `onAuthChanged-${Date.now()}`;
       console.log(`[${authChangeId}] Auth state changed. Firebase user:`, firebaseUser?.uid || 'null');
       if (firebaseUser) {
         setCurrentFirebaseUid(firebaseUser.uid);
-        await reloadUserProfile(firebaseUser.uid);
+        await reloadUserProfile(firebaseUser.uid); // This will set currentUserInternal
       } else {
         setCurrentUserInternal(null);
         setCurrentFirebaseUid(null);
         if (typeof window !== 'undefined') {
             localStorage.removeItem(LOCAL_STORAGE_KEYS.CURRENT_USER_UID);
+            localStorage.removeItem('mockUser'); // Also clear display user on logout
         }
         console.log(`[${authChangeId}] User signed out.`);
         setLoadingAuth(false); 
@@ -128,21 +137,18 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const handleLogout = async () => {
     console.log("[UserContext-handleLogout] Initiating logout.");
     setLoadingAuth(true);
-    const result = await logoutUserAction(); // This action itself handles mock vs firebase logout
+    const result = await logoutUserAction(); 
     
-    // If mock auth, clear local storage and context state explicitly
-    if (process.env.NEXT_PUBLIC_USE_MOCK_AUTH === 'true') {
+    if (process.env.NEXT_PUBLIC_USE_MOCK_AUTH === 'true' || !firebaseAuthInstanceInternal) {
       if (typeof window !== 'undefined') {
         localStorage.removeItem(LOCAL_STORAGE_KEYS.CURRENT_USER_UID);
-        // Also clear the mockUser object for AppShell display
         localStorage.removeItem('mockUser'); 
       }
       setCurrentUserInternal(null);
       setCurrentFirebaseUid(null);
-      console.log("[UserContext-handleLogout] Mock user logged out, cleared from UserContext and LS.");
+      console.log("[UserContext-handleLogout] Mock/Non-Firebase user logged out, cleared from UserContext and LS.");
     }
-    // For Firebase, onAuthStateChanged listener (if active) will handle setting currentUser to null.
-    // If not in mock mode and firebaseAuthInstanceInternal is null (due to no app), this is still fine.
+    // For Firebase, onAuthStateChanged listener will handle setting currentUser to null.
     
     setLoadingAuth(false);
     return result;

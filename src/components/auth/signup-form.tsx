@@ -22,7 +22,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { useState } from "react";
 import { Loader2, ShieldCheck } from "lucide-react";
-import type { UserRole, UserRegistrationFormData as SignUpFormValues, MockDisplayUser } from "@/types";
+import type { UserRole, UserRegistrationFormData as SignUpFormValues, MockDisplayUser, AppUser } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 import { registerUser } from "@/actions/user-actions"; 
 import { useUser } from "@/contexts/user-context";
@@ -102,62 +102,69 @@ export function SignUpForm() {
     const result = await registerUser(registrationData);
 
     if (result.success && result.firebaseUid) {
-      toast({
-        title: "Registration Successful!",
-        description: "Verifying profile and redirecting...",
-        className: "bg-green-50 border-green-200 text-green-700"
-      });
-
-      if (process.env.NEXT_PUBLIC_USE_MOCK_AUTH === 'true') {
-         if (typeof window !== 'undefined') {
-            // Save UID for UserContext to pick up
-            localStorage.setItem(LOCAL_STORAGE_KEYS.CURRENT_USER_UID, result.firebaseUid);
-            
-            // Directly save display info for AppShell from form values
-            const displayUser: MockDisplayUser = {
-              firstName: values.firstName,
-              lastName: values.lastName,
-              moniker: values.moniker,
-              gender: values.gender,
-            };
-            localStorage.setItem('mockUser', JSON.stringify(displayUser));
-        }
+      // UID is confirmed from registration, set it for the context to use for reloading
+      if (process.env.NEXT_PUBLIC_USE_MOCK_AUTH === 'true' && typeof window !== 'undefined') {
+         localStorage.setItem(LOCAL_STORAGE_KEYS.CURRENT_USER_UID, result.firebaseUid);
       }
       
-      await userContext.reloadUserProfile(result.firebaseUid);
-
-      const registeredUserFromContext = userContext.currentUser;
+      const loadedUser: AppUser | null = await userContext.reloadUserProfile(result.firebaseUid);
       setIsLoading(false); 
 
-      if (registeredUserFromContext) {
-          // Role-based redirection
-          if (registeredUserFromContext.role === "citizen") {
+      if (loadedUser) {
+          // Profile successfully loaded into context AND returned by reloadUserProfile
+          if (typeof window !== 'undefined' && process.env.NEXT_PUBLIC_USE_MOCK_AUTH === 'true') {
+              // Use data from the loadedUser (which is sourced from local storage after registration)
+              // to set the 'mockUser' for AppShell display.
+              const displayUserForMock: MockDisplayUser = {
+                  firstName: loadedUser.firstName,
+                  lastName: loadedUser.lastName,
+                  moniker: loadedUser.moniker,
+                  gender: loadedUser.gender,
+              };
+              localStorage.setItem('mockUser', JSON.stringify(displayUserForMock));
+          }
+
+          toast({
+            title: "Registration Successful!",
+            description: "Redirecting to your dashboard...",
+            className: "bg-green-50 border-green-200 text-green-700"
+          });
+
+          if (loadedUser.role === "citizen") {
               router.push("/citizen/dashboard");
-          } else if (registeredUserFromContext.role === "official") {
+          } else if (loadedUser.role === "official") {
               router.push("/official/dashboard");
           } else {
+              // This case should ideally not happen if roles are validated at registration
+               toast({
+                  title: "Profile Role Issue",
+                  description: `Registered, profile loaded, but role '${loadedUser.role}' is unexpected. UID: ${result.firebaseUid}. Redirecting to home.`,
+                  variant: "destructive",
+               });
               router.push("/"); 
           }
       } else {
+           // This means registerUser saved the data, but reloadUserProfile couldn't retrieve/load it into context.
+           // This is a genuine error state.
            toast({
-              title: "Profile Not Loaded After Registration",
-              description: "Registration successful, but profile could not be loaded into context. Please try logging in.",
+              title: "Profile Load Failed After Registration",
+              description: "Your registration data was saved, but your profile could not be loaded into the session immediately. Please try logging in.",
               variant: "destructive",
            });
+          // Cleanup local storage to prevent inconsistent state
           if (process.env.NEXT_PUBLIC_USE_MOCK_AUTH === 'true' && typeof window !== 'undefined') {
-            // Clean up potentially inconsistent state if context loading failed
             localStorage.removeItem(LOCAL_STORAGE_KEYS.CURRENT_USER_UID);
-            localStorage.removeItem('mockUser');
+            localStorage.removeItem('mockUser'); // Also remove display user if profile load failed
           }
-          await userContext.logout(); 
-          router.push("/");
+          await userContext.logout(); // Attempt to clear any partial context state
+          router.push("/"); // Redirect to login page
       }
 
     } else {
       setIsLoading(false);
       toast({
         title: "Registration Failed",
-        description: result.error || "Could not create your account.",
+        description: result.error || "Could not create your account. Please check your details and try again.",
         variant: "destructive",
       });
     }
@@ -355,4 +362,3 @@ export function SignUpForm() {
     </Card>
   );
 }
-
