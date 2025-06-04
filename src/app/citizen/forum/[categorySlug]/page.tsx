@@ -2,7 +2,7 @@
 "use client"; 
 import { use } from 'react';
 import { useState, useEffect } from 'react';
-import { FORUM_CATEGORIES, MOCK_THREADS, LOCAL_STORAGE_FORUM_THREADS_KEY } from "@/lib/constants";
+import { FORUM_CATEGORIES, MOCK_THREADS, LOCAL_STORAGE_KEYS } from "@/lib/constants";
 import type { ForumThread, StoredForumThreads, UserProfile } from "@/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -33,14 +33,14 @@ export default function ForumCategoryPage({ params: paramsProp }: { params: { ca
 
       let threadsToDisplay: ForumThread[] = [];
       try {
-        const storedThreadsRaw = localStorage.getItem(LOCAL_STORAGE_FORUM_THREADS_KEY);
+        const storedThreadsRaw = localStorage.getItem(LOCAL_STORAGE_KEYS.FORUM_THREADS);
         if (storedThreadsRaw) {
           const allStoredThreads: StoredForumThreads = JSON.parse(storedThreadsRaw);
           threadsToDisplay = allStoredThreads[params.categorySlug] || [];
         } else {
           // Initialize localStorage if empty, using MOCK_THREADS
           threadsToDisplay = MOCK_THREADS[params.categorySlug] || [];
-          localStorage.setItem(LOCAL_STORAGE_FORUM_THREADS_KEY, JSON.stringify(MOCK_THREADS));
+          localStorage.setItem(LOCAL_STORAGE_KEYS.FORUM_THREADS, JSON.stringify(MOCK_THREADS));
         }
       } catch (error) {
         console.error("Error loading threads from localStorage:", error);
@@ -124,3 +124,4 @@ export default function ForumCategoryPage({ params: paramsProp }: { params: { ca
     </div>
   );
 }
+

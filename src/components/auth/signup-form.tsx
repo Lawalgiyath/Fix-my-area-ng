@@ -22,9 +22,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { useState } from "react";
 import { Loader2, ShieldCheck } from "lucide-react";
-import type { UserRole, UserRegistrationFormData as SignUpFormValues } from "@/types"; // Use defined type
+import type { UserRole, UserRegistrationFormData as SignUpFormValues, MockDisplayUser } from "@/types"; // Import MockDisplayUser
 import { useToast } from "@/hooks/use-toast";
-import { registerUser } from "@/actions/user-actions"; // Import the action
+import { registerUser } from "@/actions/user-actions"; 
 import { useUser } from "@/contexts/user-context";
 import { LOCAL_STORAGE_KEYS } from "@/lib/constants";
 
@@ -66,7 +66,7 @@ export function SignUpForm() {
   const [isLoading, setIsLoading] = useState(false);
   const userContext = useUser();
 
-  const form = useForm<SignUpFormValues>({ // Use imported type
+  const form = useForm<SignUpFormValues>({ 
     resolver: zodResolver(signUpFormSchema),
     defaultValues: {
       firstName: "",
@@ -82,25 +82,22 @@ export function SignUpForm() {
     },
   });
 
-  const userTypeValue = useWatch({ // Changed from userType to role to match schema
+  const userTypeValue = useWatch({ 
     control: form.control,
     name: "role",
   });
 
-  async function onSubmit(values: SignUpFormValues) { // Use imported type
+  async function onSubmit(values: SignUpFormValues) { 
     setIsLoading(true);
     toast({
       title: "Registering Account...",
       description: "Please wait.",
     });
 
-    // Explicitly cast to ensure all fields for registerUser are present
     const registrationData: SignUpFormValues = {
         ...values,
-        // Ensure optional fields that might be undefined are handled if your action expects them
         officialId: values.role === 'official' ? values.officialId : undefined,
     };
-
 
     const result = await registerUser(registrationData);
 
@@ -119,26 +116,37 @@ export function SignUpForm() {
       
       await userContext.reloadUserProfile(result.firebaseUid);
 
-      setTimeout(() => {
-        setIsLoading(false);
-        const registeredUser = userContext.currentUser;
-        if (registeredUser) {
-            if (registeredUser.role === "citizen") {
-                router.push("/citizen/dashboard");
-            } else if (registeredUser.role === "official") {
-                router.push("/official/dashboard");
-            } else {
-                router.push("/"); // Fallback
-            }
-        } else {
-             toast({
-                title: "Profile Not Loaded",
-                description: "Registration successful, but profile could not be loaded. Please try logging in.",
-                variant: "destructive",
-             });
-            router.push("/");
-        }
-      }, 1000);
+      const registeredUser = userContext.currentUser;
+      setIsLoading(false); // Stop loading indicator here
+
+      if (registeredUser) {
+          // Save to 'mockUser' for AppShell display consistency if in mock mode
+          if (typeof window !== 'undefined' && process.env.NEXT_PUBLIC_USE_MOCK_AUTH === 'true') {
+              const displayUser: MockDisplayUser = {
+                  firstName: registeredUser.firstName,
+                  lastName: registeredUser.lastName,
+                  moniker: registeredUser.moniker,
+                  gender: registeredUser.gender,
+              };
+              localStorage.setItem('mockUser', JSON.stringify(displayUser));
+          }
+          // Role-based redirection
+          if (registeredUser.role === "citizen") {
+              router.push("/citizen/dashboard");
+          } else if (registeredUser.role === "official") {
+              router.push("/official/dashboard");
+          } else {
+              router.push("/"); 
+          }
+      } else {
+           toast({
+              title: "Profile Not Loaded After Registration",
+              description: "Registration successful, but profile could not be loaded. Please try logging in.",
+              variant: "destructive",
+           });
+          await userContext.logout(); // Clean up any partial auth state
+          router.push("/");
+      }
 
     } else {
       setIsLoading(false);
@@ -271,7 +279,7 @@ export function SignUpForm() {
               />
               <FormField
                 control={form.control}
-                name="role" // Changed from userType
+                name="role" 
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>I am a...</FormLabel>

@@ -1,7 +1,7 @@
 
 "use client";
 
-import type { NavItem, UserRole, UserProfile } from "@/types";
+import type { NavItem, UserRole, UserProfile, MockDisplayUser } from "@/types"; // Import MockDisplayUser
 import { APP_NAME, USER_MENU_NAV_ITEMS } from "@/lib/constants";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -38,12 +38,12 @@ type AppShellProps = {
   children: React.ReactNode;
 };
 
-type MockDisplayUser = Pick<UserProfile, 'firstName' | 'lastName' | 'moniker' | 'gender'>;
+// MockDisplayUser type is now imported from @/types
 
 export function AppShell({ userRole, navItems, children }: AppShellProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const [currentUser, setCurrentUser] = useState<MockDisplayUser | null>(null);
+  const [currentUserDisplay, setCurrentUserDisplay] = useState<MockDisplayUser | null>(null); // Renamed state variable
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -51,10 +51,10 @@ export function AppShell({ userRole, navItems, children }: AppShellProps) {
       if (storedUser) {
         try {
           const parsedUser: MockDisplayUser = JSON.parse(storedUser);
-          setCurrentUser(parsedUser);
+          setCurrentUserDisplay(parsedUser);
         } catch (e) {
-          console.error("Failed to parse mock user from localStorage", e);
-          setCurrentUser({ 
+          console.error("Failed to parse mock user from localStorage for AppShell", e);
+          setCurrentUserDisplay({ 
             firstName: userRole === 'citizen' ? 'Citizen' : 'Official', 
             lastName: 'User', 
             moniker: 'User',
@@ -62,7 +62,7 @@ export function AppShell({ userRole, navItems, children }: AppShellProps) {
           });
         }
       } else {
-         setCurrentUser({ 
+         setCurrentUserDisplay({ 
             firstName: userRole === 'citizen' ? 'Citizen' : 'Official', 
             lastName: 'User', 
             moniker: 'User',
@@ -70,39 +70,44 @@ export function AppShell({ userRole, navItems, children }: AppShellProps) {
           });
       }
     }
-  }, [userRole]);
+  }, [userRole, pathname]); // Added pathname to dependencies to re-check on navigation
 
 
   const getTitlePrefix = (gender?: string) => {
     if (gender === 'male') return 'Mr.';
-    if (gender === 'female') return 'Mrs.';
+    if (gender === 'female') return 'Mrs.'; // Or Ms. or preferred title
     return '';
   };
 
-  const userNameDisplay = currentUser 
-    ? `${getTitlePrefix(currentUser.gender)} ${currentUser.firstName} ${currentUser.lastName}`.trim()
+  const userNameDisplay = currentUserDisplay 
+    ? `${getTitlePrefix(currentUserDisplay.gender)} ${currentUserDisplay.firstName} ${currentUserDisplay.lastName}`.trim()
     : (userRole === 'citizen' ? 'Citizen User' : 'Gov. Official');
   
-  const avatarInitial = currentUser ? (currentUser.firstName ? currentUser.firstName.charAt(0) : (currentUser.moniker ? currentUser.moniker.charAt(0) : 'U')) : 'U';
+  const avatarInitial = currentUserDisplay ? (currentUserDisplay.firstName ? currentUserDisplay.firstName.charAt(0) : (currentUserDisplay.moniker ? currentUserDisplay.moniker.charAt(0) : 'U')) : 'U';
 
 
   const getPageTitle = () => {
     const currentNavItem = navItems.find(item => pathname === item.href || (item.matchStartsWith && pathname.startsWith(item.href)));
     if (currentNavItem) return currentNavItem.title;
-    if (pathname.includes('/forum/') && !pathname.endsWith('/forum')) {
-      if (MOCK_THREADS[pathname.split('/')[3]]?.find(t => t.id === pathname.split('/')[4])) {
-         return "Forum Discussion";
-      }
-      return "Forum Category";
+    
+    // For dynamic routes, we might need more robust title generation.
+    // This is a simplified example.
+    if (pathname.includes('/forum/')) {
+        if (pathname.split('/').length > 4) return "Forum Discussion"; // e.g. /citizen/forum/category/post-id
+        return "Forum Category"; // e.g. /citizen/forum/category-slug
     }
-    if (pathname.includes('/my-reports/') && MOCK_ISSUES.find(i=> i.id === pathname.split('/').pop())) return "Issue Details";
-    if (pathname.includes('/learn/') && EDUCATIONAL_CONTENT.find(c => c.id === pathname.split('/').pop())) return "Educational Content";
-    return APP_NAME;
+    if (pathname.includes('/my-reports/') && pathname.split('/').length > 3) return "Issue Details";
+    if (pathname.includes('/learn/') && pathname.split('/').length > 3) return "Educational Content";
+    if (pathname.includes('/all-reports/') && pathname.split('/').length > 3) return "Official Issue Details";
+
+
+    return APP_NAME; // Fallback title
   };
 
   const handleLogout = () => {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('mockUser');
+      localStorage.removeItem('fixMyArea_currentUserUid'); // Clear UserContext's UID too
     }
     router.push('/');
   };
@@ -141,7 +146,7 @@ export function AppShell({ userRole, navItems, children }: AppShellProps) {
               <DropdownMenuLabel className="flex flex-col">
                 <span>{userNameDisplay}</span>
                 <span className="text-xs font-normal text-muted-foreground">
-                  {currentUser?.moniker ? `@${currentUser.moniker}` : (userRole.charAt(0).toUpperCase() + userRole.slice(1))}
+                  {currentUserDisplay?.moniker ? `@${currentUserDisplay.moniker}` : (userRole.charAt(0).toUpperCase() + userRole.slice(1))}
                 </span>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
@@ -153,7 +158,7 @@ export function AppShell({ userRole, navItems, children }: AppShellProps) {
                        {item.title}
                      </button>
                   ) : (
-                    <Link href={item.href === '#' && currentUser?.moniker ? `/profile/${currentUser.moniker}` : item.href} className="flex items-center">
+                    <Link href={item.href === '#' && currentUserDisplay?.moniker ? `/profile/${currentUserDisplay.moniker}` : item.href} className="flex items-center">
                       <item.icon className="mr-2 h-4 w-4" />
                       {item.title}
                     </Link>
@@ -172,8 +177,9 @@ export function AppShell({ userRole, navItems, children }: AppShellProps) {
 }
 
 // Mock data imports for getPageTitle (will be empty now but structure is for logic)
-import { MOCK_THREADS, MOCK_ISSUES, EDUCATIONAL_CONTENT } from "@/lib/constants";
-
+// For a real app, this title logic might need to be more sophisticated or context-aware
+// For now, MOCK_THREADS, MOCK_ISSUES, EDUCATIONAL_CONTENT are not directly used here
+// but their structure informs how one *might* generate titles if data was passed down.
 
 const SidebarHSN = ({ navItems, userRole, userName, avatarInitial, onLogout, pageTitle }: { navItems: NavItem[], userRole: string, userName: string, avatarInitial: string, onLogout: () => void, pageTitle: string }) => {
   const pathname = usePathname();

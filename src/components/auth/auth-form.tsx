@@ -1,7 +1,7 @@
 
 "use client";
 
-import type { UserRole, MockRegisteredUser } from "@/types";
+import type { UserRole, MockDisplayUser } from "@/types"; // Import MockDisplayUser
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -33,14 +33,14 @@ const formSchema = z.object({
 });
 
 type AuthFormProps = {
-  userType: UserRole; // This prop might become less relevant if role is derived from mock user
+  userType: UserRole; 
 };
 
 export function AuthForm({ userType }: AuthFormProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
-  const userContext = useUser(); // Get user context
+  const userContext = useUser(); 
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -73,44 +73,47 @@ export function AuthForm({ userType }: AuthFormProps) {
         }
       }
       
-      // Trigger profile reload in UserContext
-      // The UserContext's onAuthStateChanged (for Firebase) or its mock equivalent
-      // should pick up the new auth state and fetch the profile.
-      // We explicitly call reloadUserProfile to ensure it happens for mock flow.
       await userContext.reloadUserProfile(result.firebaseUid); 
+      
+      // Directly check userContext.currentUser after reloadUserProfile has resolved
+      const loggedInUser = userContext.currentUser;
+      setIsLoading(false); // Stop loading indicator here
 
-      // Wait for userContext to update, then check role for redirection
-      // This part is tricky as context update is async. A better way might be needed.
-      // For now, a small delay and then check.
-      setTimeout(() => {
-        setIsLoading(false);
-        const loggedInUser = userContext.currentUser; // Re-check current user from context
-        
-        if (loggedInUser) {
-            if (loggedInUser.role === "citizen") {
-                router.push("/citizen/dashboard");
-            } else if (loggedInUser.role === "official") {
-                router.push("/official/dashboard");
-            } else {
-                 toast({
-                    title: "Login Role Mismatch",
-                    description: `Logged in, but role ${loggedInUser.role} unknown or no dashboard. UID: ${result.firebaseUid}`,
-                    variant: "destructive",
-                 });
-                router.push("/"); // Fallback to home
-            }
-        } else {
-             toast({
-                title: "Profile Not Found",
-                description: "Logged in, but profile could not be loaded. Please try again or contact support.",
-                variant: "destructive",
-             });
-             // Log out the user if profile isn't found after login
-             userContext.logout();
-             router.push("/");
-        }
-      }, 1000); // Delay to allow context to potentially update
+      if (loggedInUser) {
+          // Save to 'mockUser' for AppShell display consistency if in mock mode
+          if (typeof window !== 'undefined' && process.env.NEXT_PUBLIC_USE_MOCK_AUTH === 'true') {
+              const displayUser: MockDisplayUser = {
+                  firstName: loggedInUser.firstName,
+                  lastName: loggedInUser.lastName,
+                  moniker: loggedInUser.moniker,
+                  gender: loggedInUser.gender,
+              };
+              localStorage.setItem('mockUser', JSON.stringify(displayUser));
+          }
 
+          // Role-based redirection
+          if (loggedInUser.role === "citizen") {
+              router.push("/citizen/dashboard");
+          } else if (loggedInUser.role === "official") {
+              router.push("/official/dashboard");
+          } else {
+               toast({
+                  title: "Login Role Mismatch",
+                  description: `Logged in, but role ${loggedInUser.role} unknown or no dashboard. UID: ${result.firebaseUid}`,
+                  variant: "destructive",
+               });
+              router.push("/"); 
+          }
+      } else {
+           toast({
+              title: "Profile Not Found",
+              description: "Logged in, but profile could not be loaded. Please try again or contact support.",
+              variant: "destructive",
+           });
+           // Log out the user if profile isn't found after login attempt
+           await userContext.logout(); // Ensure logout action completes
+           router.push("/");
+      }
     } else {
       setIsLoading(false);
       toast({

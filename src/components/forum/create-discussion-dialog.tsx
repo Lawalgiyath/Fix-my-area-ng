@@ -27,7 +27,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import type { ForumThread, StoredForumThreads, UserProfile } from '@/types';
-import { LOCAL_STORAGE_FORUM_THREADS_KEY, MOCK_THREADS } from '@/lib/constants';
+import { MOCK_THREADS, LOCAL_STORAGE_KEYS } from '@/lib/constants';
 import { Loader2, MessageSquarePlus } from 'lucide-react';
 
 const createDiscussionSchema = z.object({
@@ -102,7 +102,7 @@ export function CreateDiscussionDialog({
 
       // Save to localStorage
       if (typeof window !== 'undefined') {
-        const storedThreadsRaw = localStorage.getItem(LOCAL_STORAGE_FORUM_THREADS_KEY);
+        const storedThreadsRaw = localStorage.getItem(LOCAL_STORAGE_KEYS.FORUM_THREADS);
         let allThreads: StoredForumThreads;
         try {
             allThreads = storedThreadsRaw ? JSON.parse(storedThreadsRaw) : MOCK_THREADS;
@@ -115,7 +115,7 @@ export function CreateDiscussionDialog({
           allThreads[categorySlug] = [];
         }
         allThreads[categorySlug] = [newThread, ...allThreads[categorySlug]];
-        localStorage.setItem(LOCAL_STORAGE_FORUM_THREADS_KEY, JSON.stringify(allThreads));
+        localStorage.setItem(LOCAL_STORAGE_KEYS.FORUM_THREADS, JSON.stringify(allThreads));
       }
 
       onDiscussionCreated(newThread);
@@ -200,3 +200,4 @@ export function CreateDiscussionDialog({
     </Dialog>
   );
 }
+

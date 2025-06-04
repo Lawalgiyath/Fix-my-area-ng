@@ -52,6 +52,9 @@ export type MockRegisteredUser = {
   createdAt: string; // ISO string
 };
 
+// For AppShell display and setting in AuthForm/SignUpForm
+export type MockDisplayUser = Pick<AppUser, 'firstName' | 'lastName' | 'moniker' | 'gender'>;
+
 export type UserRegistrationFormData = Omit<MockRegisteredUser, 'uid' | 'createdAt' | 'password'> & {
   password?: string; // Password explicitly for form
   confirmPassword?: string;
