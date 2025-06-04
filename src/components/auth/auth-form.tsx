@@ -1,7 +1,7 @@
 
 "use client";
 
-import type { UserRole, MockDisplayUser } from "@/types"; // Import MockDisplayUser
+import type { UserRole, MockDisplayUser, AppUser } from "@/types";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
@@ -22,13 +22,13 @@ import { Label } from "@/components/ui/label";
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { loginUser } from "@/actions/user-actions"; // Import the action
-import { useUser } from "@/contexts/user-context"; // Import useUser to trigger reload
+import { loginUser } from "@/actions/user-actions"; 
+import { useUser } from "@/contexts/user-context"; 
 import { LOCAL_STORAGE_KEYS } from "@/lib/constants";
 
 const formSchema = z.object({
   email: z.string().email({ message: "Invalid email address." }),
-  password: z.string().min(1, { message: "Password is required." }), // Min 1 for mock flexibility
+  password: z.string().min(1, { message: "Password is required." }), 
   rememberMe: z.boolean().optional(),
 });
 
@@ -69,49 +69,51 @@ export function AuthForm({ userType }: AuthFormProps) {
 
       if (process.env.NEXT_PUBLIC_USE_MOCK_AUTH === 'true') {
         if (typeof window !== 'undefined') {
+            // Set the UID in localStorage so UserContext.reloadUserProfile can pick it up
             localStorage.setItem(LOCAL_STORAGE_KEYS.CURRENT_USER_UID, result.firebaseUid);
         }
       }
       
-      await userContext.reloadUserProfile(result.firebaseUid); 
+      // Call reloadUserProfile without UID, it will pick it up from localStorage or context state
+      const loadedUser: AppUser | null = await userContext.reloadUserProfile(); 
       
-      // Directly check userContext.currentUser after reloadUserProfile has resolved
-      const loggedInUser = userContext.currentUser;
-      setIsLoading(false); // Stop loading indicator here
+      setIsLoading(false); 
 
-      if (loggedInUser) {
-          // Save to 'mockUser' for AppShell display consistency if in mock mode
+      if (loadedUser) {
+          // Save to 'mockUser' for AppShell display consistency if in mock mode, using data from loadedUser
           if (typeof window !== 'undefined' && process.env.NEXT_PUBLIC_USE_MOCK_AUTH === 'true') {
               const displayUser: MockDisplayUser = {
-                  firstName: loggedInUser.firstName,
-                  lastName: loggedInUser.lastName,
-                  moniker: loggedInUser.moniker,
-                  gender: loggedInUser.gender,
+                  firstName: loadedUser.firstName,
+                  lastName: loadedUser.lastName,
+                  moniker: loadedUser.moniker,
+                  gender: loadedUser.gender,
               };
               localStorage.setItem('mockUser', JSON.stringify(displayUser));
           }
 
-          // Role-based redirection
-          if (loggedInUser.role === "citizen") {
+          if (loadedUser.role === "citizen") {
               router.push("/citizen/dashboard");
-          } else if (loggedInUser.role === "official") {
+          } else if (loadedUser.role === "official") {
               router.push("/official/dashboard");
           } else {
                toast({
                   title: "Login Role Mismatch",
-                  description: `Logged in, but role ${loggedInUser.role} unknown or no dashboard. UID: ${result.firebaseUid}`,
+                  description: `Logged in, but role ${loadedUser.role} unknown or no dashboard. UID: ${result.firebaseUid}`,
                   variant: "destructive",
                });
               router.push("/"); 
           }
       } else {
            toast({
-              title: "Profile Not Found",
-              description: "Logged in, but profile could not be loaded. Please try again or contact support.",
+              title: "Profile Not Found After Login",
+              description: "Logged in, but profile could not be loaded into the session. Please try again or contact support.",
               variant: "destructive",
            });
-           // Log out the user if profile isn't found after login attempt
-           await userContext.logout(); // Ensure logout action completes
+           if (typeof window !== 'undefined' && process.env.NEXT_PUBLIC_USE_MOCK_AUTH === 'true') {
+             localStorage.removeItem(LOCAL_STORAGE_KEYS.CURRENT_USER_UID);
+             localStorage.removeItem('mockUser');
+           }
+           await userContext.logout(); 
            router.push("/");
       }
     } else {
