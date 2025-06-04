@@ -1,101 +1,149 @@
+
 'use client';
 
-import type { AppUser, UserProfileFirestoreData } from '@/types'; // Keep types for structure reference
+import type { AppUser, UserProfileFirestoreData } from '@/types';
 import React, { createContext, useContext, useState, useEffect, ReactNode, Dispatch, SetStateAction } from 'react';
-// import { auth as firebaseAuthInstance } from '@/lib/firebase-config'; // Remove Firebase Auth import
-// import { onAuthStateChanged, signOut as firebaseSignOut, type User as FirebaseUser } from 'firebase/auth'; // Remove Firebase Auth imports
-// import { getAppUserProfileFirestore } from '@/actions/user-actions'; // Remove Firestore action import
+import { auth as firebaseAuthInstance } from '@/lib/firebase-config';
+import { onAuthStateChanged, type User as FirebaseUser } from 'firebase/auth';
+import { getAppUserProfileFirestore, loginUser as loginUserAction, logoutUser as logoutUserAction } from '@/actions/user-actions';
 import { Loader2 } from 'lucide-react';
-// import { Timestamp } from 'firebase/firestore'; // Remove Firestore import
+import { LOCAL_STORAGE_KEYS, PLACEHOLDER_ERROR_DATE_ISO } from '@/lib/constants';
 
 type UserContextType = {
   currentUser: AppUser | null;
-  setCurrentUser: Dispatch<SetStateAction<AppUser | null>>; // Keep this for internal state management
+  setCurrentUser: Dispatch<SetStateAction<AppUser | null>>; // Exposed for potential direct updates if ever needed
   loadingAuth: boolean;
-  localLogin: () => void; // Add local login function signature
-  localLogout: () => void; // Add local logout function signature
+  // login: typeof loginUserAction; // Removed to simplify, use actions directly from components
+  logout: () => Promise<{success: boolean, error?: string}>;
+  reloadUserProfile: () => Promise<void>;
 };
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
-// const PLACEHOLDER_ERROR_DATE_ISO = '1970-01-01T00:00:00.000Z'; // No longer needed
-
-const LOCAL_STORAGE_USER_KEY = 'localUserId'; // Key for local storage
+const convertProfileToAppUser = (profileData: UserProfileFirestoreData | null, firebaseUid: string): AppUser | null => {
+  if (!profileData) return null;
+  return {
+    uid: firebaseUid,
+    email: profileData.email,
+    firstName: profileData.firstName,
+    lastName: profileData.lastName,
+    moniker: profileData.moniker,
+    gender: profileData.gender,
+    role: profileData.role,
+    officialId: profileData.officialId,
+    createdAt: typeof profileData.createdAt === 'string' ? profileData.createdAt : PLACEHOLDER_ERROR_DATE_ISO,
+  };
+};
 
 export function UserProvider({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUserInternal] = useState<AppUser | null>(null);
   const [loadingAuth, setLoadingAuth] = useState(true);
+  const [currentFirebaseUid, setCurrentFirebaseUid] = useState<string | null>(null);
 
-  // Basic login function
-  const localLogin = () => {
-    const testUserId = 'test-user-123'; // Example user ID
-    localStorage.setItem(LOCAL_STORAGE_USER_KEY, testUserId);
-    const simplifiedUser: AppUser = {
-      uid: testUserId,
-      email: 'test@example.com', // Example email
-      firstName: 'Local',
-      lastName: 'User',
-      moniker: 'localuser',
-      gender: 'other', // Default
-      role: 'citizen', // Hardcoded role
-      officialId: undefined,
-      createdAt: new Date().toISOString(), // Current time as string
-    };
-    setCurrentUserInternal(simplifiedUser);
-    console.log('Local user logged in:', simplifiedUser);
-  };
-
-  // Basic logout function
-  const localLogout = () => {
-    localStorage.removeItem(LOCAL_STORAGE_USER_KEY);
-    setCurrentUserInternal(null);
-    console.log('Local user logged out');
+  const reloadUserProfile = async (uidToLoad?: string | null) => {
+    const targetUid = uidToLoad || currentFirebaseUid;
+    if (!targetUid) {
+      setCurrentUserInternal(null);
+      setLoadingAuth(false);
+      return;
+    }
+    setLoadingAuth(true);
+    const profileData = await getAppUserProfileFirestore(targetUid);
+    const appUser = convertProfileToAppUser(profileData, targetUid);
+    setCurrentUserInternal(appUser);
+    if (!appUser && process.env.NEXT_PUBLIC_USE_MOCK_AUTH !== 'true') {
+      console.warn(`User profile not found for UID ${targetUid} but Firebase user exists. Logging out.`);
+      // Consider if automatic logout is desired here or if app should handle "profile incomplete" state
+      // await logoutUserAction(); // This would trigger onAuthStateChanged again
+    }
+    setLoadingAuth(false);
   };
 
 
   useEffect(() => {
-    const effectId = `UserContext-Provider-${Date.now()}`;
-    console.log(`[${effectId}] Mounting UserProvider. Initial loadingAuth: ${loadingAuth}`);
+    const effectId = `UserProvider-Effect-${Date.now()}`;
+    console.log(`[${effectId}] Running UserProvider effect. Mock Auth: ${process.env.NEXT_PUBLIC_USE_MOCK_AUTH}`);
+    setLoadingAuth(true);
 
-    // Check local storage for a user ID
-    const storedUserId = localStorage.getItem(LOCAL_STORAGE_USER_KEY);
-
-    if (storedUserId) {
-      console.log(`[${effectId}] Found stored user ID in local storage: ${storedUserId}`);
-      // Create a simplified user object
-      const simplifiedUser: AppUser = {
-        uid: storedUserId,
-        email: 'local@example.com', // Example email
-        firstName: 'Local',
-        lastName: 'User',
-        moniker: 'localuser',
-        gender: 'other', // Default
-        role: 'citizen', // Hardcoded role
-        officialId: undefined,
-        createdAt: new Date().toISOString(), // Current time as string
-      };
-      setCurrentUserInternal(simplifiedUser);
-      console.log(`[${effectId}] Set currentUser from local storage:`, simplifiedUser);
-    } else {
-      console.log(`[${effectId}] No user ID found in local storage. currentUser remains null.`);
-      setCurrentUserInternal(null); // Ensure currentUser is null if no stored ID
+    if (process.env.NEXT_PUBLIC_USE_MOCK_AUTH === 'true') {
+      console.log(`[${effectId}] Mock auth enabled. Checking local storage for current user UID.`);
+      const mockUserUid = typeof window !== 'undefined' ? localStorage.getItem(LOCAL_STORAGE_KEYS.CURRENT_USER_UID) : null;
+      if (mockUserUid) {
+        console.log(`[${effectId}] Found mock user UID in LS: ${mockUserUid}. Fetching profile.`);
+        setCurrentFirebaseUid(mockUserUid); // Keep track of the UID
+        getAppUserProfileFirestore(mockUserUid).then(profileData => {
+          const appUser = convertProfileToAppUser(profileData, mockUserUid);
+          setCurrentUserInternal(appUser);
+          console.log(`[${effectId}] Mock user profile loaded:`, appUser);
+          setLoadingAuth(false);
+        });
+      } else {
+        console.log(`[${effectId}] No mock user UID in LS. No user initially loaded.`);
+        setCurrentUserInternal(null);
+        setCurrentFirebaseUid(null);
+        setLoadingAuth(false);
+      }
+      return; // Skip Firebase auth listener
     }
 
-    // Simulate a delay for loading, or remove if not needed
-    const loadingTimer = setTimeout(() => {
+    // Firebase Auth Path
+    if (!firebaseAuthInstance) {
+        console.error("Firebase Auth instance is not available. Cannot set up auth listener.");
+        setLoadingAuth(false);
+        setCurrentUserInternal(null);
+        setCurrentFirebaseUid(null);
+        return;
+    }
+
+    const unsubscribe = onAuthStateChanged(firebaseAuthInstance, async (firebaseUser: FirebaseUser | null) => {
+      const authChangeId = `onAuthChanged-${Date.now()}`;
+      console.log(`[${authChangeId}] Auth state changed. Firebase user:`, firebaseUser?.uid || 'null');
+      if (firebaseUser) {
+        setCurrentFirebaseUid(firebaseUser.uid);
+        // User is signed in, now fetch their app-specific profile.
+        const profileData = await getAppUserProfileFirestore(firebaseUser.uid);
+        const appUser = convertProfileToAppUser(profileData, firebaseUser.uid);
+        setCurrentUserInternal(appUser);
+        console.log(`[${authChangeId}] App user profile set:`, appUser);
+        if (!appUser) {
+          // This case means user is authenticated with Firebase, but no profile in user_profiles collection
+          console.warn(`[${authChangeId}] Firebase user ${firebaseUser.uid} authenticated, but no profile found in Firestore.`);
+          // Decide how to handle this: redirect to profile creation, show error, or allow limited access.
+          // For now, currentUser will be null, and AppShell logic might redirect.
+        }
+      } else {
+        // User is signed out
+        setCurrentUserInternal(null);
+        setCurrentFirebaseUid(null);
+        console.log(`[${authChangeId}] User signed out.`);
+      }
       setLoadingAuth(false);
-      console.log(`[${effectId}] Finished initial loading (local storage check).`);
-    }, 300); // Simulate a brief loading time
+    });
 
     return () => {
-      console.log(`[${effectId}] Unmounting UserProvider. Cleaning up.`);
-       clearTimeout(loadingTimer); // Clean up the timer
+      console.log(`[${effectId}] Unsubscribing from Firebase onAuthStateChanged.`);
+      unsubscribe();
     };
-  }, []); // Empty dependency array: runs once on mount
+  }, []); // Empty dependency array ensures this runs once on mount
+
+  const handleLogout = async () => {
+    setLoadingAuth(true);
+    const result = await logoutUserAction();
+    if (process.env.NEXT_PUBLIC_USE_MOCK_AUTH === 'true') {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem(LOCAL_STORAGE_KEYS.CURRENT_USER_UID);
+      }
+      setCurrentUserInternal(null);
+      setCurrentFirebaseUid(null);
+      console.log("Mock user logged out, cleared from UserContext and LS.");
+    }
+    // For Firebase, onAuthStateChanged will handle setting currentUser to null
+    setLoadingAuth(false);
+    return result;
+  };
+
 
   if (loadingAuth) {
-    const loaderId = `UserContext-Loader-${Date.now()}`;
-    console.log(`[${loaderId}] UserProvider rendering 'Initializing Session...' because loadingAuth is TRUE.`);
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-background text-foreground">
         <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
@@ -103,10 +151,17 @@ export function UserProvider({ children }: { children: ReactNode }) {
       </div>
     );
   }
+  
+  const contextValue: UserContextType = {
+    currentUser,
+    setCurrentUser: setCurrentUserInternal, // Expose internal setter
+    loadingAuth,
+    logout: handleLogout,
+    reloadUserProfile: () => reloadUserProfile(),
+  };
 
-  console.log(`[UserContext-Render-${Date.now()}] Rendering children. loadingAuth is FALSE. currentUser: ${currentUser ? currentUser.uid + ' ('+ currentUser.role +')' : 'null'}`);
   return (
-    <UserContext.Provider value={{ currentUser, setCurrentUser: setCurrentUserInternal, loadingAuth, localLogin, localLogout }}>
+    <UserContext.Provider value={contextValue}>
       {children}
     </UserContext.Provider>
   );

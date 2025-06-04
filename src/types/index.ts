@@ -12,26 +12,51 @@ export type NavItem = {
 
 export type UserRole = "citizen" | "official";
 
-export type UserProfile = {
-  id: string;
-  firstName: string;
-  lastName:string;
-  moniker: string;
-  email: string;
-  role: UserRole;
-  gender?: 'male' | 'female' | 'other';
-};
-
-// For localStorage mock registration
-export type MockRegisteredUser = {
+// Represents the user profile data as stored in Firestore or mocked from local storage
+export type UserProfileFirestoreData = {
+  uid: string;
   email: string;
   firstName: string;
   lastName: string;
   moniker: string;
+  role: UserRole;
   gender?: 'male' | 'female' | 'other';
-  userType: UserRole;
-  officialId?: string; // Added for official verification simulation
+  officialId?: string;
+  createdAt: string | object; // ISO string for client, Firestore Timestamp for server
 };
+
+// Represents the user object used throughout the app's context and components
+export type AppUser = {
+  uid: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  moniker: string;
+  role: UserRole;
+  gender?: 'male' | 'female' | 'other';
+  officialId?: string;
+  createdAt: string; // Always ISO string
+};
+
+// For localStorage mock registration and login
+export type MockRegisteredUser = {
+  uid: string; // Added UID for easier lookup
+  email: string;
+  password?: string; // For mock login check, not for profile display
+  firstName: string;
+  lastName: string;
+  moniker: string;
+  gender?: 'male' | 'female' | 'other';
+  role: UserRole; // Changed from userType
+  officialId?: string;
+  createdAt: string; // ISO string
+};
+
+export type UserRegistrationFormData = Omit<MockRegisteredUser, 'uid' | 'createdAt' | 'password'> & {
+  password?: string; // Password explicitly for form
+  confirmPassword?: string;
+};
+
 
 export type AIUrgencyAssessment = {
   urgency: 'Emergency' | 'High' | 'Medium' | 'Low' | 'Unknown';
@@ -44,23 +69,45 @@ export type AISummary = {
   confidence?: number;
 };
 
-export type Issue = {
-  id: string; // Document ID from Firestore
+export type IssueStatus = "Submitted" | "In Progress" | "Resolved" | "Rejected";
+
+// This is the data structure for reporting/saving an issue, before it gets an ID from Firestore
+export type IssueReportData = {
   title: string;
   description: string;
-  status: "Submitted" | "In Progress" | "Resolved" | "Rejected";
-  dateReported: string; // ISO string (client-side or converted from Firestore Timestamp)
   location: string;
-  mediaUrls?: string[]; // URLs to media files (after upload)
+  categoryManual?: string;
+  mediaUrls?: string[];
+  reportedById: string;
+  status: IssueStatus;
+  aiClassification?: { category: string; confidence: number };
+  aiUrgencyAssessment?: AIUrgencyAssessment;
+  aiSummary?: AISummary;
+  dateReported: string; // ISO string
+   // createdAt will be handled by Firestore (serverTimestamp) or set on mock creation
+};
+
+
+export type Issue = {
+  id: string; // Document ID from Firestore or local storage
+  title: string;
+  description: string;
+  status: IssueStatus;
+  dateReported: string; // ISO string
+  location: string;
+  mediaUrls?: string[];
   aiClassification?: {
     category: string;
     confidence: number;
   };
   aiUrgencyAssessment?: AIUrgencyAssessment;
-  aiSummary?: AISummary; // Added for AI generated summary
-  reportedById: string; // ID of the user who reported
-  createdAt: string; // ISO string (converted from Firestore Timestamp)
-  categoryManual?: string; // Manually selected category by user
+  aiSummary?: AISummary;
+  reportedById: string;
+  createdAt: string; // ISO string
+  categoryManual?: string;
+  category?: string; // General category, can be manual or AI
+  officialNotes?: string; // Notes added by officials
+  resolvedAt?: string; // ISO string, when the issue was resolved
 };
 
 export type ForumCategory = {
@@ -73,11 +120,17 @@ export type ForumCategory = {
 export type ForumThread = {
   id: string;
   title: string;
-  author: string;
-  lastReply: string;
-  repliesCount: number;
+  author: string; // Moniker
+  authorFirstName?: string;
   categorySlug: string;
+  contentPreview: string;
+  repliesCount: number;
+  lastReply: string; // Could be a date string or user name
+  createdAt: string; // ISO string
 };
+
+export type StoredForumThreads = Record<string, ForumThread[]>;
+
 
 export type EducationalContent = {
   id: string;
@@ -93,4 +146,3 @@ export type LanguageOption = {
   name: string;
   samplePhrases: { title: string; phrase: string }[];
 };
-

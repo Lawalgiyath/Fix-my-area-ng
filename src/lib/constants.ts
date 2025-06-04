@@ -1,12 +1,12 @@
 
-import type { NavItem, ForumCategory, EducationalContent, LanguageOption, Issue, ForumThread } from '@/types';
+import type { NavItem, ForumCategory, EducationalContent, LanguageOption, Issue, ForumThread, AppUser, MockRegisteredUser } from '@/types';
 import {
   LayoutDashboard,
   FilePlus2,
   ListChecks,
   MessagesSquare,
   BookOpen,
-  Users, 
+  Users,
   Shield,
   Car,
   Trash2,
@@ -19,7 +19,7 @@ import {
   Gavel,
   BarChart3,
   Info,
-  FileText 
+  FileText
 } from 'lucide-react';
 
 export const APP_NAME = "Fix My Area NG";
@@ -40,9 +40,9 @@ export const OFFICIAL_NAV_ITEMS: NavItem[] = [
 ];
 
 export const USER_MENU_NAV_ITEMS: NavItem[] = [
-    { title: 'Profile', href: '#', icon: UserCircle }, 
-    { title: 'Settings', href: '#', icon: Settings }, 
-    { title: 'Logout', href: '/', icon: LogOut }, 
+    { title: 'Profile', href: '#', icon: UserCircle },
+    { title: 'Settings', href: '#', icon: Settings },
+    { title: 'Logout', href: '/', icon: LogOut },
 ];
 
 
@@ -206,15 +206,16 @@ export const MULTILINGUAL_GUIDE_LANGUAGES: LanguageOption[] = [
   },
 ];
 
-export const MOCK_ISSUES: Issue[] = [
-  // Cleared mock issues. The application will show an empty state or fetch from DB.
-];
+export const MOCK_ISSUES: Issue[] = []; // Initialize as empty
 
-export const LOCAL_STORAGE_FORUM_THREADS_KEY = 'civicconnect_forum_threads';
+export const LOCAL_STORAGE_KEYS = {
+  REGISTERED_USERS: 'fixMyArea_registeredUsers',
+  CURRENT_USER_UID: 'fixMyArea_currentUserUid',
+  ISSUES: 'fixMyArea_issues',
+  FORUM_THREADS: 'fixMyArea_forum_threads',
+};
 
-// Initialize MOCK_THREADS with empty arrays for each category slug
-// This ensures the structure is available for localStorage initialization
-// but starts with no predefined discussions.
+
 export const MOCK_THREADS: Record<string, ForumThread[]> = {
   'roads-transport': [],
   'waste-management': [],
@@ -224,4 +225,5 @@ export const MOCK_THREADS: Record<string, ForumThread[]> = {
   'other': [],
 };
 
-    
+// Placeholder for error date (ISO string)
+export const PLACEHOLDER_ERROR_DATE_ISO = '1970-01-01T00:00:00.000Z';

@@ -7,7 +7,20 @@ import type { AssessIssueUrgencyOutput } from '@/ai/flows/assess-issue-urgency';
 import type { SummarizeIssueOutput } from '@/ai/flows/summarize-issue-flow';
 import { collection, addDoc, getDocs, query, where, doc, getDoc as getFirestoreDoc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase-config';
-import { MOCK_ISSUES } from '@/lib/constants'; // Used for local storage fallback for now
+import { LOCAL_STORAGE_KEYS } from '@/lib/constants';
+
+// Helper to get issues from local storage
+function getLocalIssues(): Issue[] {
+  if (typeof window === 'undefined') return [];
+  const issuesStr = localStorage.getItem(LOCAL_STORAGE_KEYS.ISSUES);
+  return issuesStr ? JSON.parse(issuesStr) : [];
+}
+
+// Helper to save issues to local storage
+function saveLocalIssues(issues: Issue[]): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(LOCAL_STORAGE_KEYS.ISSUES, JSON.stringify(issues));
+}
 
 export async function saveIssueReport(
   formData: {
@@ -20,81 +33,74 @@ export async function saveIssueReport(
   aiUrgencyResult: AssessIssueUrgencyOutput | null,
   aiSummaryResult: SummarizeIssueOutput | null,
   mediaUrls: string[],
-  authUserId: string | null // Authenticated user's ID
+  authUserId: string | null
 ): Promise<{ success: boolean; error?: string; issueId?: string }> {
   const actionId = `saveIssueReport-${Date.now()}`;
-  try {
-    if (process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true') {
-      // Local storage fallback
-      console.warn(`[${actionId}] Mock data mode: Using local storage for issue report.`);
-      const issueId = `local-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-      
-      const reporterIdToUse = process.env.NEXT_PUBLIC_USE_MOCK_AUTH === 'true' ? 'mock_citizen_user_id' : authUserId;
-      if (!reporterIdToUse) {
-          return { success: false, error: 'Reporter ID could not be determined for mock mode.' };
-      }
+  console.log(`[${actionId}] Saving issue. Mock Data: ${process.env.NEXT_PUBLIC_USE_MOCK_DATA}. User ID: ${authUserId}`);
 
+  if (process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true') {
+    if (!authUserId) {
+      return { success: false, error: 'Reporter ID (authUserId) is required for mock mode.' };
+    }
+    try {
+      const localIssues = getLocalIssues();
       const newIssue: Issue = {
-        id: issueId,
+        id: `local-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
         title: formData.title,
         description: formData.description,
         location: formData.location,
         categoryManual: formData.categoryManual,
+        category: formData.categoryManual || aiCategorizationResult?.category || 'Other',
         aiClassification: aiCategorizationResult || undefined,
         aiUrgencyAssessment: aiUrgencyResult || undefined,
         aiSummary: aiSummaryResult || undefined,
         mediaUrls: mediaUrls,
         status: 'Submitted',
-        reportedById: reporterIdToUse, // Use the determined reporter ID
+        reportedById: authUserId,
         dateReported: new Date().toISOString(),
         createdAt: new Date().toISOString(),
       };
-      const existingIssuesString = typeof window !== 'undefined' ? localStorage.getItem('localIssues') : null;
-      const existingIssues: Issue[] = existingIssuesString ? JSON.parse(existingIssuesString) : [];
-      existingIssues.push(newIssue);
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('localIssues', JSON.stringify(existingIssues));
-      }
-      console.log(`[${actionId}] Issue report saved to local storage with ID: ${issueId}`);
-      return { success: true, issueId: issueId };
+      localIssues.push(newIssue);
+      saveLocalIssues(localIssues);
+      console.log(`[${actionId}] Mock issue saved to local storage: ${newIssue.id}`);
+      return { success: true, issueId: newIssue.id };
+    } catch (e) {
+      console.error(`[${actionId}] Error saving mock issue:`, e);
+      return { success: false, error: 'Failed to save mock issue to local storage.' };
     }
+  }
 
-    // Firebase Firestore logic
-    if (!db) {
-      return { success: false, error: 'Firestore is not initialized. Cannot save report.' };
-    }
-    
-    if (process.env.NEXT_PUBLIC_USE_MOCK_AUTH !== 'true' && !authUserId) {
-      return { success: false, error: 'User is not authenticated. Cannot save report.' };
-    }
-    const reporterIdToUseFb = process.env.NEXT_PUBLIC_USE_MOCK_AUTH === 'true' ? 'mock_citizen_user_id' : authUserId;
+  // Firebase Firestore logic
+  if (!db) {
+    return { success: false, error: 'Firestore is not initialized. Cannot save report.' };
+  }
+  if (!authUserId) {
+    return { success: false, error: 'User is not authenticated (authUserId missing). Cannot save report.' };
+  }
 
-    if (!reporterIdToUseFb) {
-        return { success: false, error: 'Reporter ID could not be determined.' };
-    }
+  const issueDataToSave: Omit<Issue, 'id' | 'createdAt'> & { createdAt: any } = {
+    title: formData.title,
+    description: formData.description,
+    location: formData.location,
+    categoryManual: formData.categoryManual,
+    category: formData.categoryManual || aiCategorizationResult?.category || 'Other',
+    aiClassification: aiCategorizationResult || undefined,
+    aiUrgencyAssessment: aiUrgencyResult || undefined,
+    aiSummary: aiSummaryResult || undefined,
+    mediaUrls: mediaUrls,
+    status: 'Submitted',
+    reportedById: authUserId,
+    dateReported: new Date().toISOString(),
+    createdAt: serverTimestamp(), // Firestore will handle this
+  };
 
-    const issueData: Omit<Issue, 'id'> = {
-      title: formData.title,
-      description: formData.description,
-      location: formData.location,
-      categoryManual: formData.categoryManual,
-      aiClassification: aiCategorizationResult || undefined,
-      aiUrgencyAssessment: aiUrgencyResult || undefined,
-      aiSummary: aiSummaryResult || undefined,
-      mediaUrls: mediaUrls,
-      status: 'Submitted',
-      reportedById: reporterIdToUseFb, // Use the determined reporter ID for Firestore
-      dateReported: new Date().toISOString(),
-      createdAt: serverTimestamp() as unknown as string,
-    };
-
-    const docRef = await addDoc(collection(db, "issues"), issueData);
+  try {
+    const docRef = await addDoc(collection(db, "issues"), issueDataToSave);
     console.log(`[${actionId}] Issue report saved to Firestore with ID: ${docRef.id}`);
     return { success: true, issueId: docRef.id };
-
   } catch (error) {
-    console.error(`[${actionId}] Error saving issue report: `, error);
-    let errorMessage = 'Failed to save issue report.';
+    console.error(`[${actionId}] Error saving issue report to Firestore: `, error);
+    let errorMessage = 'Failed to save issue report to Firestore.';
     if (error instanceof Error) {
       errorMessage = error.message;
     }
@@ -102,195 +108,225 @@ export async function saveIssueReport(
   }
 }
 
-
 export async function getIssuesForUser(userId: string | null): Promise<Issue[]> {
-    const actionId = `getIssuesForUser-${Date.now()}`;
-    console.log(`[${actionId}] Attempting to get issues for user ID: ${userId}`);
+  const actionId = `getIssuesForUser-${Date.now()}`;
+  console.log(`[${actionId}] Getting issues for user: ${userId}. Mock Data: ${process.env.NEXT_PUBLIC_USE_MOCK_DATA}`);
 
-    if (process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true') {
-        console.warn(`[${actionId}] Mock data mode: Using local storage for getIssuesForUser.`);
-        if (!userId) {
-            console.warn(`[${actionId}] User ID is null. Returning empty array for mock mode.`);
-            return [];
-        }
-        const existingIssuesString = typeof window !== 'undefined' ? localStorage.getItem('localIssues') : null;
-        const allIssues: Issue[] = existingIssuesString ? JSON.parse(existingIssuesString) : [];
-        const userIssues = allIssues.filter(issue => issue.reportedById === userId);
-        console.log(`[${actionId}] Found ${userIssues.length} issues in local storage for user ID: ${userId}`);
-        return userIssues;
-    }
-
-    if (!db) {
-      console.error(`[${actionId}] Firestore (db) is not initialized.`);
+  if (process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true') {
+    if (!userId) {
+      console.warn(`[${actionId}] User ID is null for mock mode. Returning empty array.`);
       return [];
     }
-    if (!userId) {
-        console.warn(`[${actionId}] User ID is null. Cannot fetch Firestore issues.`);
-        return [];
-    }
-
     try {
-        const issuesCollectionRef = collection(db, "issues");
-        const q = query(issuesCollectionRef, where("reportedById", "==", userId));
-        const querySnapshot = await getDocs(q);
-        const issues: Issue[] = [];
-        querySnapshot.forEach((docSnap) => {
-            const data = docSnap.data();
-            issues.push({
-                id: docSnap.id,
-                ...data,
-                createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : data.createdAt,
-                dateReported: data.dateReported, 
-            } as Issue);
-        });
-        console.log(`[${actionId}] Found ${issues.length} issues in Firestore for user ID: ${userId}`);
-        return issues;
-    } catch (error) {
-        console.error(`[${actionId}] Error fetching issues for user from Firestore: `, error);
-        return [];
+      const allIssues = getLocalIssues();
+      const userIssues = allIssues.filter(issue => issue.reportedById === userId);
+      console.log(`[${actionId}] Found ${userIssues.length} mock issues for user ${userId}.`);
+      return userIssues;
+    } catch (e) {
+      console.error(`[${actionId}] Error fetching mock issues for user:`, e);
+      return [];
     }
+  }
+
+  // Firebase Firestore logic
+  if (!db) {
+    console.error(`[${actionId}] Firestore (db) is not initialized.`);
+    return [];
+  }
+  if (!userId) {
+    console.warn(`[${actionId}] User ID is null. Cannot fetch Firestore issues.`);
+    return [];
+  }
+
+  try {
+    const issuesCollectionRef = collection(db, "issues");
+    const q = query(issuesCollectionRef, where("reportedById", "==", userId), where("status", "!=", "Rejected")); // Example: Exclude rejected
+    const querySnapshot = await getDocs(q);
+    const issues: Issue[] = [];
+    querySnapshot.forEach((docSnap) => {
+      const data = docSnap.data();
+      issues.push({
+        id: docSnap.id,
+        ...data,
+        createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : data.createdAt,
+        dateReported: data.dateReported,
+      } as Issue);
+    });
+    console.log(`[${actionId}] Found ${issues.length} issues in Firestore for user ID: ${userId}`);
+    return issues;
+  } catch (error) {
+    console.error(`[${actionId}] Error fetching issues for user from Firestore: `, error);
+    return [];
+  }
 }
 
-export async function getIssueById(issueId: string): Promise<Issue | null> {
-    const actionId = `getIssueById-${Date.now()}`;
-    console.log(`[${actionId}] Attempting to get issue by ID: ${issueId}`);
+export async function getAllReportedIssues(): Promise<Issue[]> {
+  const actionId = `getAllReportedIssues-${Date.now()}`;
+  console.log(`[${actionId}] Getting all issues. Mock Data: ${process.env.NEXT_PUBLIC_USE_MOCK_DATA}`);
 
-    if (process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true') {
-        console.warn(`[${actionId}] Mock data mode: Using local storage for getIssueById.`);
-         if (!issueId) {
-            console.warn(`[${actionId}] Issue ID is null or undefined for local storage fetch. Returning null.`);
-            return null;
-        }
-        const existingIssuesString = typeof window !== 'undefined' ? localStorage.getItem('localIssues') : null;
-        const allIssues: Issue[] = existingIssuesString ? JSON.parse(existingIssuesString) : [];
-        const foundIssue = allIssues.find(issue => issue.id === issueId);
-        if (foundIssue) {
-            console.log(`[${actionId}] Found issue in local storage with ID: ${issueId}`);
-            return foundIssue;
-        } else {
-            console.warn(`[${actionId}] Issue with ID ${issueId} not found in local storage.`);
-            return null;
-        }
+  if (process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true') {
+    try {
+      const allIssues = getLocalIssues();
+      console.log(`[${actionId}] Found ${allIssues.length} mock issues.`);
+      return allIssues.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()); // Sort by newest
+    } catch (e) {
+      console.error(`[${actionId}] Error fetching all mock issues:`, e);
+      return [];
     }
-    
-    if (!db) {
-      console.error(`[${actionId}] Firestore (db) is not initialized.`);
+  }
+
+  // Firebase Firestore logic
+  if (!db) {
+    console.error(`[${actionId}] Firestore (db) is not initialized.`);
+    return [];
+  }
+  try {
+    const issuesCollectionRef = collection(db, "issues");
+    const q = query(issuesCollectionRef, where("status", "!=", "Rejected")); // Example filter
+    const querySnapshot = await getDocs(q);
+    const issues: Issue[] = [];
+    querySnapshot.forEach((docSnap) => {
+      const data = docSnap.data();
+      issues.push({
+        id: docSnap.id,
+        ...data,
+        createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : data.createdAt,
+        dateReported: data.dateReported,
+      } as Issue);
+    });
+    console.log(`[${actionId}] Found ${issues.length} issues in Firestore.`);
+    return issues.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  } catch (error) {
+    console.error(`[${actionId}] Error fetching all issues from Firestore: `, error);
+    return [];
+  }
+}
+
+
+export async function getIssueById(issueId: string): Promise<Issue | null> {
+  const actionId = `getIssueById-${Date.now()}`;
+   console.log(`[${actionId}] Getting issue by ID: ${issueId}. Mock Data: ${process.env.NEXT_PUBLIC_USE_MOCK_DATA}`);
+
+  if (process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true') {
+    if (!issueId) return null;
+    try {
+      const allIssues = getLocalIssues();
+      const foundIssue = allIssues.find(issue => issue.id === issueId);
+      console.log(`[${actionId}] Mock issue found:`, foundIssue);
+      return foundIssue || null;
+    } catch (e) {
+      console.error(`[${actionId}] Error fetching mock issue by ID:`, e);
       return null;
     }
-    if (!issueId) {
-        console.warn(`[${actionId}] Issue ID is null or undefined for Firestore fetch. Returning null.`);
-        return null;
-    }
+  }
 
-    try {
-        const issueRef = doc(db, "issues", issueId);
-        const docSnap = await getFirestoreDoc(issueRef);
+  // Firebase Firestore logic
+  if (!db) {
+    console.error(`[${actionId}] Firestore (db) is not initialized.`);
+    return null;
+  }
+  if (!issueId) return null;
 
-        if (docSnap.exists()) {
-            const data = docSnap.data();
-            console.log(`[${actionId}] Found issue in Firestore with ID: ${issueId}`);
-            return {
-                id: docSnap.id,
-                ...data,
-                createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : data.createdAt,
-                dateReported: data.dateReported,
-            } as Issue;
-        } else {
-            console.warn(`[${actionId}] Issue with ID ${issueId} not found in Firestore.`);
-            return null;
-        }
-    } catch (error) {
-        console.error(`[${actionId}] Error fetching issue by ID from Firestore: `, error);
-        return null;
+  try {
+    const issueRef = doc(db, "issues", issueId);
+    const docSnap = await getFirestoreDoc(issueRef);
+    if (docSnap.exists()) {
+      const data = docSnap.data();
+      const issue = {
+        id: docSnap.id,
+        ...data,
+        createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : data.createdAt,
+        dateReported: data.dateReported,
+      } as Issue;
+      console.log(`[${actionId}] Firestore issue found:`, issue);
+      return issue;
+    } else {
+      console.warn(`[${actionId}] Issue with ID ${issueId} not found in Firestore.`);
+      return null;
     }
+  } catch (error) {
+    console.error(`[${actionId}] Error fetching issue by ID from Firestore: `, error);
+    return null;
+  }
 }
 
 export async function updateIssueStatus(issueId: string, newStatus: IssueStatus, officialNotes?: string | null): Promise<{ success: boolean; error?: string }> {
     const actionId = `updateIssueStatus-${Date.now()}`;
-    console.log(`[${actionId}] Attempting to update status for issue ID: ${issueId} to ${newStatus}`);
+    console.log(`[${actionId}] Updating status for issue ID: ${issueId} to ${newStatus}. Mock Data: ${process.env.NEXT_PUBLIC_USE_MOCK_DATA}`);
 
     if (process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true') {
-        console.warn(`[${actionId}] Mock data mode: Using local storage for updateIssueStatus.`);
-         if (!issueId) {
-            return { success: false, error: 'Issue ID is missing for local storage update.' };
-        }
-        const existingIssuesString = typeof window !== 'undefined' ? localStorage.getItem('localIssues') : null;
-        let allIssues: Issue[] = existingIssuesString ? JSON.parse(existingIssuesString) : [];
-        const issueIndex = allIssues.findIndex(issue => issue.id === issueId);
-        if (issueIndex > -1) {
-            allIssues[issueIndex].status = newStatus;
-            // Add officialNotes and resolvedAt logic if needed for local storage and if present in Issue type
-            if (typeof window !== 'undefined') localStorage.setItem('localIssues', JSON.stringify(allIssues));
-            console.log(`[${actionId}] Successfully updated status in local storage for issue ID: ${issueId}`);
-            return { success: true };
-        } else {
-            return { success: false, error: `Issue with ID ${issueId} not found in local storage for status update.` };
+        if (!issueId) return { success: false, error: 'Issue ID is missing for mock update.' };
+        try {
+            let allIssues = getLocalIssues();
+            const issueIndex = allIssues.findIndex(issue => issue.id === issueId);
+            if (issueIndex > -1) {
+                allIssues[issueIndex].status = newStatus;
+                if (officialNotes !== undefined) allIssues[issueIndex].officialNotes = officialNotes;
+                if (newStatus === 'Resolved' && !allIssues[issueIndex].resolvedAt) {
+                    allIssues[issueIndex].resolvedAt = new Date().toISOString();
+                }
+                saveLocalIssues(allIssues);
+                console.log(`[${actionId}] Mock issue status updated for ${issueId}.`);
+                return { success: true };
+            }
+            return { success: false, error: `Mock issue with ID ${issueId} not found.` };
+        } catch (e) {
+            console.error(`[${actionId}] Error updating mock issue status:`, e);
+            return { success: false, error: 'Failed to update mock issue status.' };
         }
     }
 
-    if (!db) {
-      return { success: false, error: 'Firestore is not initialized. Cannot update status.' };
-    }
-    if (!issueId) {
-        return { success: false, error: 'Issue ID is missing for Firestore update.' };
-    }
+    // Firebase Firestore logic
+    if (!db) return { success: false, error: 'Firestore is not initialized.' };
+    if (!issueId) return { success: false, error: 'Issue ID is missing.' };
 
     try {
         const issueRef = doc(db, "issues", issueId);
-        const updateData: Partial<Pick<Issue, 'status'>> = { status: newStatus };
-        // Add officialNotes and resolvedAt logic if needed for Firestore and if present in Issue type
-        // e.g. if (officialNotes !== undefined) updateData.officialNotes = officialNotes;
-        // if (newStatus === 'Resolved') updateData.resolvedAt = serverTimestamp() as any;
-        await updateDoc(issueRef, updateData);
-        console.log(`[${actionId}] Successfully updated status in Firestore for issue ID: ${issueId}`);
+        const updateData: Partial<Pick<Issue, 'status' | 'officialNotes' | 'resolvedAt'>> = { status: newStatus };
+        if (officialNotes !== undefined) updateData.officialNotes = officialNotes;
+        if (newStatus === 'Resolved') updateData.resolvedAt = new Date().toISOString(); // Or serverTimestamp() if preferred and handled by type
+        
+        await updateDoc(issueRef, updateData as any); // Cast as any if serverTimestamp causes type issues client-side
+        console.log(`[${actionId}] Firestore issue status updated for ${issueId}.`);
         return { success: true };
     } catch (error) {
         console.error(`[${actionId}] Error updating issue status in Firestore: `, error);
-        let errorMessage = 'Failed to update issue status.';
-         if (error instanceof Error) errorMessage = error.message;
-        return { success: false, error: errorMessage };
+        return { success: false, error: (error instanceof Error ? error.message : 'Failed to update status.') };
     }
 }
 
 export async function deleteIssue(issueId: string): Promise<{ success: boolean; error?: string }> {
     const actionId = `deleteIssue-${Date.now()}`;
-    console.log(`[${actionId}] Attempting to delete issue with ID: ${issueId}`);
+    console.log(`[${actionId}] Deleting issue ID: ${issueId}. Mock Data: ${process.env.NEXT_PUBLIC_USE_MOCK_DATA}`);
 
-     if (process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true') {
-        console.warn(`[${actionId}] Mock data mode: Using local storage for deleteIssue.`);
-         if (!issueId) {
-            return { success: false, error: 'Issue ID is missing for local storage deletion.' };
-        }
-        const existingIssuesString = typeof window !== 'undefined' ? localStorage.getItem('localIssues') : null;
-        let allIssues: Issue[] = existingIssuesString ? JSON.parse(existingIssuesString) : [];
-        const filteredIssues = allIssues.filter(issue => issue.id !== issueId);
-        if (filteredIssues.length < allIssues.length) {
-            if (typeof window !== 'undefined') localStorage.setItem('localIssues', JSON.stringify(filteredIssues));
-            console.log(`[${actionId}] Successfully deleted issue from local storage with ID: ${issueId}`);
-            return { success: true };
-        } else {
-            return { success: false, error: `Issue with ID ${issueId} not found in local storage for deletion.` };
+    if (process.env.NEXT_PUBLIC_USE_MOCK_DATA === 'true') {
+        if (!issueId) return { success: false, error: 'Issue ID is missing for mock delete.' };
+        try {
+            let allIssues = getLocalIssues();
+            const filteredIssues = allIssues.filter(issue => issue.id !== issueId);
+            if (filteredIssues.length < allIssues.length) {
+                saveLocalIssues(filteredIssues);
+                console.log(`[${actionId}] Mock issue deleted: ${issueId}.`);
+                return { success: true };
+            }
+            return { success: false, error: `Mock issue with ID ${issueId} not found.` };
+        } catch (e) {
+            console.error(`[${actionId}] Error deleting mock issue:`, e);
+            return { success: false, error: 'Failed to delete mock issue.' };
         }
     }
 
-    if (!db) {
-      return { success: false, error: 'Firestore is not initialized. Cannot delete issue.' };
-    }
-    if (!issueId) {
-        return { success: false, error: 'Issue ID is missing for Firestore deletion.' };
-    }
+    // Firebase Firestore logic
+    if (!db) return { success: false, error: 'Firestore is not initialized.' };
+    if (!issueId) return { success: false, error: 'Issue ID is missing.' };
 
     try {
         const issueRef = doc(db, "issues", issueId);
         await deleteDoc(issueRef);
-        console.log(`[${actionId}] Successfully deleted issue from Firestore with ID: ${issueId}`);
+        console.log(`[${actionId}] Firestore issue deleted: ${issueId}.`);
         return { success: true };
     } catch (error) {
          console.error(`[${actionId}] Error deleting issue from Firestore: `, error);
-         let errorMessage = 'Failed to delete issue.';
-          if (error instanceof Error) errorMessage = error.message;
-         return { success: false, error: errorMessage };
+         return { success: false, error: (error instanceof Error ? error.message : 'Failed to delete issue.') };
     }
 }
-
-    

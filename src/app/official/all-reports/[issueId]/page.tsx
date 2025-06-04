@@ -1,16 +1,19 @@
 
-// This page will be a server component that fetches data,
-// then can pass it to client components if needed for interactivity.
-import { db } from '@/lib/firebase-config';
+"use client"; // Convert to client component
+
+import { useEffect, useState } from 'react';
+import { useParams, useRouter, notFound as navigateNotFound } from 'next/navigation'; // Use navigateNotFound for client components
+import Link from 'next/link';
 import type { Issue } from '@/types';
-import { doc, getDoc, Timestamp } from 'firebase/firestore';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { AlertCircle, CheckCircle, Clock, MapPin, Tag, User, CalendarDays, MessageSquare, ArrowLeft, Info, ShieldAlert, Edit, FileText, UserCheck, Users, Brain, ClipboardList } from 'lucide-react'; // Added ClipboardList
-import Link from 'next/link';
+import { AlertCircle, CheckCircle, Clock, MapPin, Tag, User, CalendarDays, MessageSquare, ArrowLeft, Info, ShieldAlert, Edit, FileText, UserCheck, Users, Brain, ClipboardList, Loader2 } from 'lucide-react';
 import Image from 'next/image';
-import { notFound } from 'next/navigation';
+import { getIssueById, updateIssueStatus } from '@/actions/issue-actions'; // Use refactored actions
+import { useToast } from '@/hooks/use-toast';
+import { Textarea } from '@/components/ui/textarea'; // For official notes
+
 
 const statusConfig: Record<Issue["status"], { icon: React.ElementType; badgeClass: string; textClass: string; description: string }> = {
   Submitted: { icon: AlertCircle, badgeClass: "border-blue-500 bg-blue-50 text-blue-700", textClass: "text-blue-700", description: "Report has been submitted and is awaiting review." },
@@ -27,44 +30,84 @@ const urgencyBadgeConfig: Record<NonNullable<Issue['aiUrgencyAssessment']>['urge
     Unknown: { badgeClass: "border-gray-400 bg-gray-100 text-gray-600" },
 };
 
+export default function OfficialIssueDetailPage() {
+  const params = useParams();
+  const router = useRouter();
+  const issueId = params.issueId as string;
+  const { toast } = useToast();
 
-function processSingleIssueTimestamps(issueData: any): Omit<Issue, 'id'> {
-  const processedData = { ...issueData };
-  if (issueData.createdAt && issueData.createdAt instanceof Timestamp) {
-    processedData.createdAt = issueData.createdAt.toDate().toISOString();
-  }
-  if (issueData.dateReported && issueData.dateReported instanceof Timestamp) {
-    processedData.dateReported = issueData.dateReported.toDate().toISOString();
-  }
-  return processedData as Omit<Issue, 'id'>;
-}
+  const [issue, setIssue] = useState<Issue | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [officialNote, setOfficialNote] = useState(""); // For adding notes
 
-
-async function getIssueDetails(issueId: string): Promise<Issue | null> {
-  if (!issueId) return null;
-  try {
-    const issueRef = doc(db, "issues", issueId);
-    const issueSnap = await getDoc(issueRef);
-
-    if (issueSnap.exists()) {
-      return {
-        id: issueSnap.id,
-        ...processSingleIssueTimestamps(issueSnap.data()),
-      } as Issue;
-    } else {
-      return null;
+  const fetchIssueDetails = () => {
+    if (!issueId) {
+      setError("Issue ID is missing.");
+      setLoading(false);
+      return;
     }
-  } catch (error) {
-    console.error("Error fetching issue details for official:", error);
-    return null;
+    setLoading(true);
+    setError(null);
+    getIssueById(issueId)
+      .then(fetchedIssue => {
+        if (fetchedIssue) {
+          setIssue(fetchedIssue);
+          setOfficialNote(fetchedIssue.officialNotes || ""); // Load existing notes
+        } else {
+          setError("Issue not found.");
+          // For client components, router.push or a specific "not found" component display is better.
+          // navigateNotFound(); // This might be too abrupt, consider a softer error display.
+        }
+      })
+      .catch(err => {
+        console.error("Error fetching issue details:", err);
+        setError("Failed to load issue details.");
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  };
+
+  useEffect(() => {
+    fetchIssueDetails();
+  }, [issueId]);
+
+  const handleUpdateStatus = async (newStatus: Issue["status"]) => {
+    if (!issue) return;
+    const result = await updateIssueStatus(issue.id, newStatus, officialNote.trim() || issue.officialNotes); // Send current note
+    if (result.success) {
+      toast({ title: "Status Updated", description: `Issue status changed to ${newStatus}.`, className: "bg-green-50 border-green-200 text-green-700" });
+      fetchIssueDetails(); // Re-fetch to show updated data and notes
+    } else {
+      toast({ title: "Update Failed", description: result.error || "Could not update status.", variant: "destructive" });
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="container mx-auto py-8 text-center flex flex-col items-center justify-center min-h-[60vh]">
+        <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+        <p className="text-muted-foreground">Loading issue details...</p>
+      </div>
+    );
   }
-}
 
-export default async function OfficialIssueDetailPage({ params }: { params: { issueId: string } }) {
-  const issue = await getIssueDetails(params.issueId);
-
-  if (!issue) {
-    notFound();
+  if (error || !issue) {
+    return (
+      <div className="container mx-auto py-8 text-center">
+        <AlertCircle className="mx-auto h-12 w-12 text-destructive mb-4" />
+        <h1 className="text-2xl font-semibold">Issue Not Found</h1>
+        <p className="text-muted-foreground">
+          {error || "The issue you are looking for does not exist or could not be loaded."}
+        </p>
+        <Button asChild variant="outline" className="mt-6" onClick={() => router.push('/official/all-reports')}>
+          <Link href="/official/all-reports">
+            <ArrowLeft className="mr-2 h-4 w-4" /> Back to All Reports
+          </Link>
+        </Button>
+      </div>
+    );
   }
 
   const CurrentStatusIcon = statusConfig[issue.status]?.icon || Info;
@@ -79,10 +122,10 @@ export default async function OfficialIssueDetailPage({ params }: { params: { is
   return (
     <div className="container mx-auto py-6 space-y-8">
       <div className="flex items-center justify-between">
-        <Link href="/official/all-reports" className="inline-flex items-center text-sm text-primary hover:underline">
+        <Button variant="outline" size="sm" onClick={() => router.back()}>
           <ArrowLeft className="mr-1 h-4 w-4" />
-          Back to All Reports
-        </Link>
+          Back
+        </Button>
       </div>
 
       <Card className="shadow-xl">
@@ -103,7 +146,7 @@ export default async function OfficialIssueDetailPage({ params }: { params: { is
             </div>
           </div>
           <CardDescription className="text-sm text-muted-foreground mt-1">
-            Issue ID: {issue.id} &bull; {statusDescription}
+            Issue ID: {issue.id.substring(0,10)}... &bull; {statusDescription}
           </CardDescription>
         </CardHeader>
         <CardContent className="pt-6 space-y-6">
@@ -113,7 +156,7 @@ export default async function OfficialIssueDetailPage({ params }: { params: { is
               <p>{issue.description}</p>
             </div>
           </section>
-          
+
           {issue.aiSummary && (
             <section>
                 <h3 className="text-lg font-semibold text-primary mb-2 flex items-center"><ClipboardList className="mr-2 h-5 w-5"/>AI Generated Summary</h3>
@@ -135,11 +178,11 @@ export default async function OfficialIssueDetailPage({ params }: { params: { is
               </div>
               <div className="flex items-start">
                 <Tag className="mr-3 h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
-                <div><strong className="text-muted-foreground">Category (Manual):</strong> <span className="ml-1">{issue.categoryManual || 'N/A'}</span></div>
+                <div><strong className="text-muted-foreground">Category:</strong> <span className="ml-1">{issue.categoryManual || issue.aiClassification?.category || issue.category || 'N/A'}</span></div>
               </div>
               <div className="flex items-start">
                 <User className="mr-3 h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
-                <div><strong className="text-muted-foreground">Reported By (ID):</strong> <span className="ml-1 truncate">{issue.reportedById || 'N/A'}</span></div>
+                <div><strong className="text-muted-foreground">Reported By (ID):</strong> <span className="ml-1 truncate">{issue.reportedById ? issue.reportedById.substring(0,10) + '...' : 'N/A'}</span></div>
               </div>
               <div className="flex items-start">
                 <CalendarDays className="mr-3 h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
@@ -148,7 +191,7 @@ export default async function OfficialIssueDetailPage({ params }: { params: { is
               {issue.createdAt && (
                 <div className="flex items-start md:col-span-2">
                     <FileText className="mr-3 h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
-                    <div><strong className="text-muted-foreground">Logged at (Server):</strong> <span className="ml-1">{new Date(issue.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span></div>
+                    <div><strong className="text-muted-foreground">Logged at:</strong> <span className="ml-1">{new Date(issue.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span></div>
                 </div>
               )}
             </div>
@@ -177,7 +220,7 @@ export default async function OfficialIssueDetailPage({ params }: { params: { is
               </section>
             )}
           </div>
-          
+
           <section>
             <h3 className="text-lg font-semibold text-primary mb-2">Attached Media</h3>
             {(issue.mediaUrls && issue.mediaUrls.length > 0) ? (
@@ -189,7 +232,7 @@ export default async function OfficialIssueDetailPage({ params }: { params: { is
                       alt={`Attached media ${index + 1}`}
                       layout="fill"
                       objectFit="cover"
-                      data-ai-hint="report evidence" 
+                      data-ai-hint="report evidence"
                     />
                   </div>
                 ))}
@@ -209,30 +252,44 @@ export default async function OfficialIssueDetailPage({ params }: { params: { is
           <CardTitle className="text-xl flex items-center text-primary">
             <Edit className="mr-2 h-5 w-5" /> Official Actions & Log
           </CardTitle>
-          <CardDescription>Manage issue status, assign tasks, and view activity log.</CardDescription>
+          <CardDescription>Manage issue status, assign tasks, and add official notes.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div>
+            <Label htmlFor="officialNote" className="text-sm font-medium text-primary">Official Note</Label>
+            <Textarea
+              id="officialNote"
+              placeholder="Add internal notes or justification for status change..."
+              value={officialNote}
+              onChange={(e) => setOfficialNote(e.target.value)}
+              className="min-h-[100px] mt-1"
+            />
+             <p className="text-xs text-muted-foreground mt-1">This note will be saved with the status update.</p>
+          </div>
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" disabled>
-              <Edit className="mr-2 h-4 w-4" /> Update Status (Not Implemented)
-            </Button>
-            <Button variant="outline" disabled>
-              <UserCheck className="mr-2 h-4 w-4" /> Assign (Not Implemented)
-            </Button>
-            <Button variant="outline" disabled>
-              <Users className="mr-2 h-4 w-4" /> Escalate (Not Implemented)
-            </Button>
+            {(Object.keys(statusConfig) as Issue["status"][]).map(statusValue => (
+                <Button 
+                    key={statusValue} 
+                    variant={issue.status === statusValue ? "default" : "outline"}
+                    onClick={() => handleUpdateStatus(statusValue)}
+                    disabled={issue.status === statusValue}
+                >
+                    {issue.status === statusValue ? <CheckCircle className="mr-2 h-4 w-4"/> : <Edit3 className="mr-2 h-4 w-4" />}
+                     Set to {statusValue}
+                </Button>
+            ))}
           </div>
            <div className="mt-4 p-4 border rounded-md text-sm text-muted-foreground bg-secondary/30">
             <Info className="inline-block mr-2 h-4 w-4" />
-            Activity log and commenting features are not yet implemented for officials.
+            Current official notes: {issue.officialNotes || "None"}
+            <br/>
+            Further actions and detailed activity log features are not yet fully implemented for officials.
           </div>
         </CardContent>
         <CardFooter className="border-t pt-4">
-            <p className="text-xs text-muted-foreground">Further actions will be logged here.</p>
+            <p className="text-xs text-muted-foreground">Changes to notes and status are saved upon clicking a status button.</p>
         </CardFooter>
       </Card>
     </div>
   );
 }
-

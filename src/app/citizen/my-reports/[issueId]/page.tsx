@@ -1,9 +1,9 @@
 
-"use client";
+"use client"; // Convert to client component
 
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import type { Issue, UserProfile } from '@/types'; // Added UserProfile
+import type { Issue, UserProfile as AppUserProfileType } from '@/types'; // Renamed to avoid conflict
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -12,8 +12,8 @@ import { Textarea } from '@/components/ui/textarea';
 import Image from 'next/image';
 import { useToast } from "@/hooks/use-toast";
 import React, { useEffect, useState } from 'react';
-import { doc, getDoc, Timestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase-config';
+import { getIssueById } from '@/actions/issue-actions'; // Use the refactored action
+import { useUser } from '@/contexts/user-context'; // To get current user (optional, for author name display)
 
 const statusConfig: Record<Issue["status"], { icon: React.ElementType; badgeClass: string; textClass: string }> = {
   Submitted: { icon: AlertCircle, badgeClass: "border-blue-500 bg-blue-50 text-blue-700", textClass: "text-blue-700" },
@@ -24,53 +24,25 @@ const statusConfig: Record<Issue["status"], { icon: React.ElementType; badgeClas
 
 type DisplayComment = {
     id: string;
-    author: string;
+    author: string; // Could be moniker or "Official"
     text: string;
-    date: string;
+    date: string; // ISO string
     userType: 'official' | 'citizen';
 };
-
-// Helper to convert Firestore Timestamps in a single issue object
-function processSingleIssueTimestamps(issueData: any): Omit<Issue, 'id'> {
-  const processedData = { ...issueData };
-  if (issueData.createdAt && issueData.createdAt instanceof Timestamp) {
-    processedData.createdAt = issueData.createdAt.toDate().toISOString();
-  }
-  if (issueData.dateReported && issueData.dateReported instanceof Timestamp) {
-    processedData.dateReported = issueData.dateReported.toDate().toISOString();
-  }
-  return processedData as Omit<Issue, 'id'>;
-}
-
 
 export default function IssueDetailPage() {
   const params = useParams();
   const router = useRouter();
   const issueId = params.issueId as string;
   const { toast } = useToast();
+  const { currentUser: loggedInUser } = useUser(); // For comment author display
 
   const [issue, setIssue] = useState<Issue | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [currentUser, setCurrentUser] = useState<Pick<UserProfile, 'firstName' | 'moniker'> | null>(null);
-
+  
   const [displayComments, setDisplayComments] = useState<DisplayComment[]>([]);
   const [newCommentText, setNewCommentText] = useState("");
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const storedUser = localStorage.getItem('mockUser');
-      if (storedUser) {
-        try {
-          const parsedUser: Pick<UserProfile, 'firstName' | 'moniker'> = JSON.parse(storedUser);
-          setCurrentUser(parsedUser);
-        } catch (e) {
-          console.error("Failed to parse mock user for comments", e);
-        }
-      }
-    }
-  }, []);
-
 
   useEffect(() => {
     if (!issueId) {
@@ -79,18 +51,14 @@ export default function IssueDetailPage() {
       return;
     }
 
-    const fetchIssue = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const issueRef = doc(db, "issues", issueId);
-        const issueSnap = await getDoc(issueRef);
-
-        if (issueSnap.exists()) {
-          setIssue({
-            id: issueSnap.id,
-            ...processSingleIssueTimestamps(issueSnap.data()),
-          } as Issue);
+    setLoading(true);
+    setError(null);
+    getIssueById(issueId)
+      .then(fetchedIssue => {
+        if (fetchedIssue) {
+          setIssue(fetchedIssue);
+          // Mock comments load or initialize if not part of issue data yet
+          // For now, keeping comments local to the session
         } else {
           setError("Issue not found.");
           toast({
@@ -99,20 +67,19 @@ export default function IssueDetailPage() {
             variant: "destructive",
           });
         }
-      } catch (err) {
-        console.error("Error fetching issue:", err);
+      })
+      .catch(err => {
+        console.error("Error fetching issue details:", err);
         setError("Failed to fetch issue details.");
         toast({
           title: "Error",
           description: "Could not retrieve issue details. Please try again.",
           variant: "destructive",
         });
-      } finally {
+      })
+      .finally(() => {
         setLoading(false);
-      }
-    };
-
-    fetchIssue();
+      });
   }, [issueId, toast]);
 
 
@@ -126,18 +93,23 @@ export default function IssueDetailPage() {
       return;
     }
 
-    const authorName = currentUser ? `${currentUser.firstName} (${currentUser.moniker || 'You'})` : 'Citizen User (You)';
+    // Determine author name based on logged-in user
+    // Fallback if user context isn't fully loaded or if it's an official viewing (future enhancement)
+    const authorName = loggedInUser 
+        ? `${loggedInUser.firstName} (${loggedInUser.moniker || 'You'})` 
+        : (issue?.reportedById === loggedInUser?.uid ? 'You (Reporter)' : 'Citizen User (You)');
+
 
     const newCommentToAdd: DisplayComment = {
-      id: Date.now().toString(),
+      id: `comment-${Date.now()}`, // Simple ID for mock
       author: authorName,
       text: newCommentText,
       date: new Date().toISOString(),
-      userType: 'citizen',
+      userType: 'citizen', // Assume citizen for now, official commenting not implemented
     };
 
     setDisplayComments(prevComments => [...prevComments, newCommentToAdd]);
-    setNewCommentText(""); // Clear the input field
+    setNewCommentText("");
 
     toast({
       title: "Comment Added (Simulated)",
@@ -194,7 +166,7 @@ export default function IssueDetailPage() {
             </Badge>
           </div>
           <CardDescription className="text-sm text-muted-foreground mt-1">
-            Issue ID: {issue.id}
+            Issue ID: {issue.id.substring(0,10)}...
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -209,11 +181,11 @@ export default function IssueDetailPage() {
             </div>
             <div className="flex items-start text-muted-foreground">
               <Tag className="mr-2 h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
-              <div><strong>Category:</strong> <span className="ml-1">{issue.categoryManual || issue.aiClassification?.category || 'N/A'}</span></div>
+              <div><strong>Category:</strong> <span className="ml-1">{issue.categoryManual || issue.aiClassification?.category || issue.category || 'N/A'}</span></div>
             </div>
             <div className="flex items-start text-muted-foreground">
               <User className="mr-2 h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
-              <div><strong>Reporter ID:</strong> <span className="ml-1 truncate">{issue.reportedById || 'N/A'}</span></div>
+              <div><strong>Reporter ID:</strong> <span className="ml-1 truncate">{issue.reportedById ? issue.reportedById.substring(0,10) + '...' : 'N/A'}</span></div>
             </div>
             <div className="flex items-start text-muted-foreground">
               <CalendarDays className="mr-2 h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
@@ -222,7 +194,7 @@ export default function IssueDetailPage() {
              {issue.createdAt && (
                 <div className="flex items-start text-muted-foreground md:col-span-2">
                     <FileText className="mr-2 h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
-                    <div><strong>Logged at (Server):</strong> <span className="ml-1">{new Date(issue.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span></div>
+                    <div><strong>Logged at:</strong> <span className="ml-1">{new Date(issue.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span></div>
                 </div>
             )}
           </div>
@@ -292,4 +264,3 @@ export default function IssueDetailPage() {
     </div>
   );
 }
-

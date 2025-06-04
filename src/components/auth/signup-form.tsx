@@ -22,8 +22,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { useState } from "react";
 import { Loader2, ShieldCheck } from "lucide-react";
-import type { MockRegisteredUser, UserRole } from "@/types";
+import type { UserRole, UserRegistrationFormData as SignUpFormValues } from "@/types"; // Use defined type
 import { useToast } from "@/hooks/use-toast";
+import { registerUser } from "@/actions/user-actions"; // Import the action
+import { useUser } from "@/contexts/user-context";
+import { LOCAL_STORAGE_KEYS } from "@/lib/constants";
+
 
 const signUpFormSchemaBase = z.object({
   firstName: z.string().min(2, { message: "First name must be at least 2 characters." }),
@@ -32,9 +36,9 @@ const signUpFormSchemaBase = z.object({
   email: z.string().email({ message: "Invalid email address." }),
   password: z.string().min(6, { message: "Password must be at least 6 characters." }),
   confirmPassword: z.string().min(6, { message: "Password must be at least 6 characters." }),
-  gender: z.enum(["male", "female", "other"], { required_error: "Please select your gender."}),
-  userType: z.enum(["citizen", "official"] as [UserRole, ...UserRole[]], { required_error: "Please select your user type."}),
-  officialId: z.string().optional(), // Made optional here, will be refined
+  gender: z.enum(["male", "female", "other"] as const, { required_error: "Please select your gender."}),
+  role: z.enum(["citizen", "official"] as [UserRole, ...UserRole[]], { required_error: "Please select your user type."}),
+  officialId: z.string().optional(),
   rememberMe: z.boolean().optional(),
 });
 
@@ -46,7 +50,7 @@ const signUpFormSchema = signUpFormSchemaBase.superRefine((data, ctx) => {
       path: ["confirmPassword"],
     });
   }
-  if (data.userType === "official" && (!data.officialId || data.officialId.trim() === "")) {
+  if (data.role === "official" && (!data.officialId || data.officialId.trim() === "")) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       message: "Official ID is required for government officials.",
@@ -60,8 +64,9 @@ export function SignUpForm() {
   const router = useRouter();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const userContext = useUser();
 
-  const form = useForm<z.infer<typeof signUpFormSchema>>({
+  const form = useForm<SignUpFormValues>({ // Use imported type
     resolver: zodResolver(signUpFormSchema),
     defaultValues: {
       firstName: "",
@@ -71,68 +76,78 @@ export function SignUpForm() {
       password: "",
       confirmPassword: "",
       gender: undefined,
-      userType: "citizen",
+      role: "citizen",
       officialId: "",
       rememberMe: false,
     },
   });
 
-  const userTypeValue = useWatch({
+  const userTypeValue = useWatch({ // Changed from userType to role to match schema
     control: form.control,
-    name: "userType",
+    name: "role",
   });
 
-  function onSubmit(values: z.infer<typeof signUpFormSchema>) {
+  async function onSubmit(values: SignUpFormValues) { // Use imported type
     setIsLoading(true);
-    console.log("Sign up form submitted:", values);
+    toast({
+      title: "Registering Account...",
+      description: "Please wait.",
+    });
 
-    setTimeout(() => {
-      setIsLoading(false);
-      if (typeof window !== 'undefined') {
-        let registeredUsers: MockRegisteredUser[] = JSON.parse(localStorage.getItem('mockRegisteredUsers') || '[]');
-        const existingUser = registeredUsers.find(user => user.email === values.email);
+    // Explicitly cast to ensure all fields for registerUser are present
+    const registrationData: SignUpFormValues = {
+        ...values,
+        // Ensure optional fields that might be undefined are handled if your action expects them
+        officialId: values.role === 'official' ? values.officialId : undefined,
+    };
 
-        if (existingUser) {
-          toast({
-            title: "Registration Failed",
-            description: "An account with this email already exists. Please login or use a different email.",
-            variant: "destructive",
-          });
-          return;
+
+    const result = await registerUser(registrationData);
+
+    if (result.success && result.firebaseUid) {
+      toast({
+        title: "Registration Successful!",
+        description: "Verifying profile and redirecting...",
+        className: "bg-green-50 border-green-200 text-green-700"
+      });
+
+      if (process.env.NEXT_PUBLIC_USE_MOCK_AUTH === 'true') {
+         if (typeof window !== 'undefined') {
+            localStorage.setItem(LOCAL_STORAGE_KEYS.CURRENT_USER_UID, result.firebaseUid);
         }
-
-        const newUser: MockRegisteredUser = {
-          email: values.email,
-          firstName: values.firstName,
-          lastName: values.lastName,
-          moniker: values.moniker,
-          gender: values.gender,
-          userType: values.userType,
-          ...(values.userType === "official" && { officialId: values.officialId }),
-        };
-        registeredUsers.push(newUser);
-        localStorage.setItem('mockRegisteredUsers', JSON.stringify(registeredUsers));
-
-        localStorage.setItem('mockUser', JSON.stringify({
-          firstName: values.firstName,
-          lastName: values.lastName,
-          moniker: values.moniker,
-          gender: values.gender,
-        }));
-        
-        toast({
-            title: "Registration Successful!",
-            description: `Your ${values.userType} account has been created. You can now log in.`,
-            className: "bg-green-50 border-green-200 text-green-700"
-        });
       }
+      
+      await userContext.reloadUserProfile(result.firebaseUid);
 
-      if (values.userType === "citizen") {
-        router.push("/citizen/dashboard");
-      } else {
-        router.push("/official/dashboard");
-      }
-    }, 1500);
+      setTimeout(() => {
+        setIsLoading(false);
+        const registeredUser = userContext.currentUser;
+        if (registeredUser) {
+            if (registeredUser.role === "citizen") {
+                router.push("/citizen/dashboard");
+            } else if (registeredUser.role === "official") {
+                router.push("/official/dashboard");
+            } else {
+                router.push("/"); // Fallback
+            }
+        } else {
+             toast({
+                title: "Profile Not Loaded",
+                description: "Registration successful, but profile could not be loaded. Please try logging in.",
+                variant: "destructive",
+             });
+            router.push("/");
+        }
+      }, 1000);
+
+    } else {
+      setIsLoading(false);
+      toast({
+        title: "Registration Failed",
+        description: result.error || "Could not create your account.",
+        variant: "destructive",
+      });
+    }
   }
 
   return (
@@ -256,7 +271,7 @@ export function SignUpForm() {
               />
               <FormField
                 control={form.control}
-                name="userType"
+                name="role" // Changed from userType
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>I am a...</FormLabel>
@@ -288,7 +303,7 @@ export function SignUpForm() {
                       Official ID / Verification Code
                     </FormLabel>
                     <FormControl>
-                      <Input placeholder="Enter your official identification" {...field} />
+                      <Input placeholder="Enter your official identification" {...field} value={field.value || ''} />
                     </FormControl>
                     <FormDescription>
                       This ID will be used for verification purposes (simulated for MVP).
@@ -317,8 +332,8 @@ export function SignUpForm() {
                 </FormItem>
               )}
             />
-            <Button type="submit" className="w-full !mt-6" disabled={isLoading}>
-              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <Button type="submit" className="w-full !mt-6" disabled={isLoading || userContext.loadingAuth}>
+              {(isLoading || userContext.loadingAuth) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Create Account
             </Button>
           </form>
@@ -327,4 +342,3 @@ export function SignUpForm() {
     </Card>
   );
 }
-

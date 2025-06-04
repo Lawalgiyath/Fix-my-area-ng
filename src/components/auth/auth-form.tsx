@@ -22,21 +22,25 @@ import { Label } from "@/components/ui/label";
 import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { loginUser } from "@/actions/user-actions"; // Import the action
+import { useUser } from "@/contexts/user-context"; // Import useUser to trigger reload
+import { LOCAL_STORAGE_KEYS } from "@/lib/constants";
 
 const formSchema = z.object({
   email: z.string().email({ message: "Invalid email address." }),
-  password: z.string().min(6, { message: "Password must be at least 6 characters." }),
+  password: z.string().min(1, { message: "Password is required." }), // Min 1 for mock flexibility
   rememberMe: z.boolean().optional(),
 });
 
 type AuthFormProps = {
-  userType: UserRole;
+  userType: UserRole; // This prop might become less relevant if role is derived from mock user
 };
 
 export function AuthForm({ userType }: AuthFormProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const userContext = useUser(); // Get user context
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -47,46 +51,74 @@ export function AuthForm({ userType }: AuthFormProps) {
     },
   });
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
+  async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
-    console.log("Login form submitted:", values);
+    toast({
+      title: "Attempting Login...",
+      description: "Please wait.",
+    });
 
-    setTimeout(() => {
-      setIsLoading(false);
-      if (typeof window !== 'undefined') {
-        const registeredUsers: MockRegisteredUser[] = JSON.parse(localStorage.getItem('mockRegisteredUsers') || '[]');
-        const foundUser = registeredUsers.find(user => user.email === values.email && user.userType === userType);
+    const result = await loginUser(values.email, values.password);
 
-        if (!foundUser) {
-          toast({
-            title: "Login Failed",
-            description: "User not found or role mismatch. Please check your email, role or sign up.",
-            variant: "destructive",
-          });
-          return;
-        }
+    if (result.success && result.firebaseUid) {
+      toast({
+        title: "Authentication Succeeded",
+        description: "Verifying profile and redirecting...",
+        className: "bg-green-50 border-green-200 text-green-700"
+      });
 
-        // If user found, proceed with mock login
-        localStorage.setItem('mockUser', JSON.stringify({
-          firstName: foundUser.firstName,
-          lastName: foundUser.lastName,
-          moniker: foundUser.moniker,
-          gender: foundUser.gender,
-        }));
-        
-        toast({
-          title: "Login Successful!",
-          description: `Welcome back, ${foundUser.firstName}!`,
-          className: "bg-green-50 border-green-200 text-green-700"
-        });
-
-        if (userType === "citizen") {
-          router.push("/citizen/dashboard");
-        } else {
-          router.push("/official/dashboard");
+      if (process.env.NEXT_PUBLIC_USE_MOCK_AUTH === 'true') {
+        if (typeof window !== 'undefined') {
+            localStorage.setItem(LOCAL_STORAGE_KEYS.CURRENT_USER_UID, result.firebaseUid);
         }
       }
-    }, 1500);
+      
+      // Trigger profile reload in UserContext
+      // The UserContext's onAuthStateChanged (for Firebase) or its mock equivalent
+      // should pick up the new auth state and fetch the profile.
+      // We explicitly call reloadUserProfile to ensure it happens for mock flow.
+      await userContext.reloadUserProfile(result.firebaseUid); 
+
+      // Wait for userContext to update, then check role for redirection
+      // This part is tricky as context update is async. A better way might be needed.
+      // For now, a small delay and then check.
+      setTimeout(() => {
+        setIsLoading(false);
+        const loggedInUser = userContext.currentUser; // Re-check current user from context
+        
+        if (loggedInUser) {
+            if (loggedInUser.role === "citizen") {
+                router.push("/citizen/dashboard");
+            } else if (loggedInUser.role === "official") {
+                router.push("/official/dashboard");
+            } else {
+                 toast({
+                    title: "Login Role Mismatch",
+                    description: `Logged in, but role ${loggedInUser.role} unknown or no dashboard. UID: ${result.firebaseUid}`,
+                    variant: "destructive",
+                 });
+                router.push("/"); // Fallback to home
+            }
+        } else {
+             toast({
+                title: "Profile Not Found",
+                description: "Logged in, but profile could not be loaded. Please try again or contact support.",
+                variant: "destructive",
+             });
+             // Log out the user if profile isn't found after login
+             userContext.logout();
+             router.push("/");
+        }
+      }, 1000); // Delay to allow context to potentially update
+
+    } else {
+      setIsLoading(false);
+      toast({
+        title: "Login Failed",
+        description: result.error || "Invalid credentials or user role mismatch.",
+        variant: "destructive",
+      });
+    }
   }
 
   return (
@@ -146,8 +178,8 @@ export function AuthForm({ userType }: AuthFormProps) {
                 </FormItem>
               )}
             />
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <Button type="submit" className="w-full" disabled={isLoading || userContext.loadingAuth}>
+              {(isLoading || userContext.loadingAuth) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Login
             </Button>
           </form>
