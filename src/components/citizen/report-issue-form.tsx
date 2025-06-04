@@ -24,11 +24,10 @@ import { summarizeIssueDescription, type SummarizeIssueOutput } from "@/ai/flows
 import { saveIssueReport } from "@/actions/issue-actions";
 import { useToast } from "@/hooks/use-toast";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { CheckCircle, Info, Loader2, MapPin, UploadCloud, ShieldAlert, FileText, Paperclip } from "lucide-react";
+import { CheckCircle, Info, Loader2, MapPin, UploadCloud, FileText, Paperclip, Lightbulb } from "lucide-react"; // Added Lightbulb
 import { FORUM_CATEGORIES } from "@/lib/constants";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-// Firebase Storage imports are removed
 import { useUser } from "@/contexts/user-context";
 
 const reportIssueSchema = z.object({
@@ -41,9 +40,8 @@ const reportIssueSchema = z.object({
 
 export function ReportIssueForm() {
   const { currentUser, loadingAuth } = useUser();
-  // isUploadingMedia state is no longer needed as we are not doing real uploads
   const [isProcessingAi, setIsProcessingAi] = useState(false);
-  const [isSubmittingDb, setIsSubmittingDb] = useState(false); // Renaming this to reflect local storage save
+  const [isSubmittingDb, setIsSubmittingDb] = useState(false);
   const [aiCategorizationResult, setAiCategorizationResult] = useState<CategorizeIssueOutput | null>(null);
   const [aiUrgencyResult, setAiUrgencyResult] = useState<AssessIssueUrgencyOutput | null>(null);
   const [aiSummaryResult, setAiSummaryResult] = useState<SummarizeIssueOutput | null>(null);
@@ -64,17 +62,13 @@ export function ReportIssueForm() {
 
   useEffect(() => {
     if (submissionSuccess) {
-      // This effect will run when submissionSuccess becomes true
-      // It's a good place to reset the form for a new submission
       form.reset();
       setSelectedFiles([]);
       setAiCategorizationResult(null);
       setAiUrgencyResult(null);
       setAiSummaryResult(null);
-      // setSubmissionSuccess(false); // Important: Reset for the next submission cycle after other resets
-                                  // Actually, button logic will handle this transition.
     }
-  }, [submissionSuccess, form]); // Add form to dependencies
+  }, [submissionSuccess, form]);
 
 
   async function onSubmit(values: z.infer<typeof reportIssueSchema>) {
@@ -86,8 +80,6 @@ export function ReportIssueForm() {
         });
         return;
     }
-    // If NEXT_PUBLIC_USE_MOCK_AUTH is true, currentUser might be from mock, or null if not "logged in" via mock.
-    // The saveIssueReport action also checks for authUserId.
     const reporterId = currentUser?.uid || (process.env.NEXT_PUBLIC_USE_MOCK_AUTH === 'true' ? 'mock_citizen_user_id_fallback' : null);
 
     if (!reporterId) {
@@ -99,8 +91,6 @@ export function ReportIssueForm() {
         return;
     }
 
-
-    // Reset states for a new submission attempt
     setIsProcessingAi(false);
     setIsSubmittingDb(false);
     setAiCategorizationResult(null);
@@ -112,16 +102,13 @@ export function ReportIssueForm() {
     let currentUrgency: AssessIssueUrgencyOutput | null = null;
     let currentSummary: SummarizeIssueOutput | null = null;
     
-    // Mock media URLs by using file names
     const mockMediaUrls = selectedFiles.map(file => `mock_media_path/${file.name}`);
     
     try {
-      // 1. Media is "processed" by just getting file names. No actual upload.
       if (selectedFiles.length > 0) {
         toast({ title: "Media Processed (Mock)", description: `${selectedFiles.length} file name(s) noted.` });
       }
 
-      // 2. AI Processing
       setIsProcessingAi(true);
       toast({ title: "Processing AI", description: "Analyzing issue category, urgency, and summary..." });
       
@@ -139,7 +126,6 @@ export function ReportIssueForm() {
       setAiSummaryResult(currentSummary);
       setIsProcessingAi(false);
 
-      // 3. Database Submission (now Local Storage)
       setIsSubmittingDb(true);
       toast({ title: "Saving Report", description: "Saving your report to local storage..."});
 
@@ -148,12 +134,12 @@ export function ReportIssueForm() {
         currentCategorization,
         currentUrgency,
         currentSummary,
-        mockMediaUrls, // Pass mock media URLs
+        mockMediaUrls,
         reporterId
       );
 
       if (submissionResult.success) {
-        setSubmissionSuccess(true); // This will trigger the useEffect for form reset
+        setSubmissionSuccess(true); 
         toast({
           title: "Issue Reported Successfully!",
           description: (
@@ -192,22 +178,18 @@ export function ReportIssueForm() {
     } finally {
       setIsProcessingAi(false);
       setIsSubmittingDb(false);
-      // submissionSuccess is set earlier, its useEffect will handle resets
     }
   }
 
   const handleMediaChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
       const filesArray = Array.from(event.target.files);
-      const limitedFiles = filesArray.slice(0, 5); // Max 5 files
+      const limitedFiles = filesArray.slice(0, 5); 
       setSelectedFiles(limitedFiles);
       
-      // Update react-hook-form's value for 'media'
-      // Create a new FileList for the form value
       const dataTransfer = new DataTransfer();
       limitedFiles.forEach(file => dataTransfer.items.add(file));
       form.setValue("media", dataTransfer.files, { shouldValidate: true });
-
 
        if (limitedFiles.length > 0) {
         toast({
@@ -235,16 +217,14 @@ export function ReportIssueForm() {
   if (isProcessingAi) buttonText = "Analyzing Issue...";
   else if (isSubmittingDb) buttonText = "Saving Report...";
   
-  let submitDisabled = isLoadingPrimary; // Initial disabled state
+  let submitDisabled = isLoadingPrimary; 
   if (process.env.NEXT_PUBLIC_USE_MOCK_AUTH !== 'true' && (loadingAuth || !currentUser)) {
     buttonText = "Login Required to Report";
     submitDisabled = true;
   } else if (submissionSuccess) {
-     // If submission was successful, the button's role changes
      buttonText = "Report Another Issue";
-     submitDisabled = false; // Enable the button to allow resetting the form
+     submitDisabled = false; 
   }
-
 
   return (
     <Card className="w-full max-w-2xl mx-auto shadow-xl">
@@ -355,8 +335,7 @@ export function ReportIssueForm() {
                       type="file"
                       accept="image/*,video/*" 
                       multiple
-                      onChange={handleMediaChange} // Uses our custom handler
-                      // value is not directly set on file inputs for security reasons
+                      onChange={handleMediaChange}
                       disabled={isLoadingPrimary && !submissionSuccess}
                       className="block w-full text-sm text-slate-500
                         file:mr-4 file:py-2 file:px-4
@@ -385,44 +364,57 @@ export function ReportIssueForm() {
               )}
             />
 
-            {aiCategorizationResult && !submissionSuccess && (
-              <Alert variant={aiCategorizationResult.confidence > 0.7 ? "default" : "destructive"} className={aiCategorizationResult.confidence > 0.7 ? "bg-blue-50 border-blue-200 text-blue-700" : "bg-orange-50 border-orange-200 text-orange-700"}>
-                <Info className="h-4 w-4" />
-                <AlertTitle>AI Category Suggestion</AlertTitle>
-                <AlertDescription>
-                  Category: <strong>{aiCategorizationResult.category}</strong> ({(aiCategorizationResult.confidence * 100).toFixed(0)}% confident)
+            {/* Consolidated AI Feedback Alert */}
+            { (aiCategorizationResult || aiUrgencyResult || aiSummaryResult) && !submissionSuccess && (
+              <Alert variant="default" className="bg-secondary/30 border-secondary">
+                <Lightbulb className="h-4 w-4 text-primary" />
+                <AlertTitle className="text-primary">AI Analysis & Suggestions</AlertTitle>
+                <AlertDescription className="space-y-1.5">
+                  {aiCategorizationResult && (
+                    <p>
+                      <strong>Suggested Category:</strong>{' '}
+                      <span className={aiCategorizationResult.confidence > 0.7 ? "text-green-600 font-medium" : "text-orange-600 font-medium"}>
+                        {aiCategorizationResult.category}
+                      </span>
+                      {' '}({(aiCategorizationResult.confidence * 100).toFixed(0)}% confidence)
+                    </p>
+                  )}
+                  {aiUrgencyResult && (
+                    <p>
+                      <strong>Assessed Urgency:</strong>{' '}
+                      <span 
+                        className={
+                          aiUrgencyResult.urgency === 'Emergency' || aiUrgencyResult.urgency === 'High' 
+                          ? 'text-red-600 font-semibold' 
+                          : aiUrgencyResult.urgency === 'Medium' 
+                          ? 'text-yellow-600 font-semibold' 
+                          : 'text-foreground font-medium'
+                        }
+                      >
+                        {aiUrgencyResult.urgency}
+                      </span>
+                      . <span className="italic text-muted-foreground text-xs">Reasoning: {aiUrgencyResult.reasoning}</span>
+                    </p>
+                  )}
+                  {aiSummaryResult && (
+                    <p>
+                      <strong>AI Summary:</strong>{' '}
+                      <em className="text-foreground/90">
+                        {aiSummaryResult.summary}
+                      </em>
+                      {aiSummaryResult.confidence !== undefined && aiSummaryResult.confidence !== null && ` (${(aiSummaryResult.confidence * 100).toFixed(0)}% confidence)`}
+                    </p>
+                  )}
                 </AlertDescription>
               </Alert>
             )}
-            {aiUrgencyResult && !submissionSuccess && (
-                <Alert variant={aiUrgencyResult.urgency === 'Emergency' || aiUrgencyResult.urgency === 'High' ? 'destructive' : 'default'} 
-                       className={aiUrgencyResult.urgency === 'Emergency' || aiUrgencyResult.urgency === 'High' ? 'bg-red-50 border-red-200 text-red-700' : 'bg-yellow-50 border-yellow-200 text-yellow-700'}>
-                    <ShieldAlert className="h-4 w-4" />
-                    <AlertTitle>AI Urgency Assessment</AlertTitle>
-                    <AlertDescription>
-                    Urgency: <strong>{aiUrgencyResult.urgency}</strong>. Reason: {aiUrgencyResult.reasoning}
-                    </AlertDescription>
-                </Alert>
-            )}
-             {aiSummaryResult && !submissionSuccess && (
-                <Alert variant="default" className="bg-indigo-50 border-indigo-200 text-indigo-700">
-                    <FileText className="h-4 w-4" />
-                    <AlertTitle>AI Generated Summary</AlertTitle>
-                    <AlertDescription>
-                        {aiSummaryResult.summary}
-                        {aiSummaryResult.confidence && ` (${(aiSummaryResult.confidence * 100).toFixed(0)}% confident)`}
-                    </AlertDescription>
-                </Alert>
-            )}
 
-
-            {submissionSuccess && ( // This alert shows after a successful submission
+            {submissionSuccess && (
                  <Alert variant="default" className="bg-green-50 border-green-200 text-green-700">
                     <CheckCircle className="h-4 w-4" />
                     <AlertTitle>Report Submitted to Local Storage!</AlertTitle>
                     <AlertDescription>
                     Thank you! Your report has been successfully saved locally.
-                    {/* Display AI results again for clarity on what was "saved" */}
                     {aiCategorizationResult && (
                         <p className="mt-1">AI Category: <strong>{aiCategorizationResult.category}</strong></p>
                     )}
@@ -439,12 +431,8 @@ export function ReportIssueForm() {
           </CardContent>
           <CardFooter>
             <Button type="submit" className="w-full" disabled={submitDisabled} onClick={() => {
-                if (submissionSuccess) { // If button text is "Report Another Issue"
-                    setSubmissionSuccess(false); // This triggers useEffect to reset the form
-                    // The form.handleSubmit will not run if the button type is changed,
-                    // but since it's still submit, we ensure it tries to go through the onSubmit logic
-                    // which now has a check for submissionSuccess to reset first.
-                    // Or better, this click action is just to reset the flag.
+                if (submissionSuccess) { 
+                    setSubmissionSuccess(false); 
                 }
             }}>
               {(isLoadingPrimary && !submissionSuccess) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
