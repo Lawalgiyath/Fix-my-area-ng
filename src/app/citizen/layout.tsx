@@ -3,6 +3,7 @@
 
 import { AppShell } from "@/components/layout/app-shell";
 import { CITIZEN_NAV_ITEMS } from "@/lib/constants";
+import { UserProvider } from "@/contexts/user-context"; // Import UserProvider
 
 export default function CitizenLayout({
   children,
@@ -11,11 +12,13 @@ export default function CitizenLayout({
 }) {
   // Mock user data is now handled within AppShell using localStorage for demo purposes
   return (
-    <AppShell
-      userRole="citizen"
-      navItems={CITIZEN_NAV_ITEMS}
-    >
-      {children}
-    </AppShell>
+    <UserProvider> {/* Wrap with UserProvider */}
+      <AppShell
+        userRole="citizen"
+        navItems={CITIZEN_NAV_ITEMS}
+      >
+        {children}
+      </AppShell>
+    </UserProvider>
   );
 }
