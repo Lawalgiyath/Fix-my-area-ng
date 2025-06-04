@@ -1,14 +1,12 @@
 
 import { IssueCard } from "@/components/citizen/issue-card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Frown } from "lucide-react";
+import { Frown, AlertTriangle } from "lucide-react"; // Added AlertTriangle
 import { db } from "@/lib/firebase-config";
 import { collection, query, getDocs, orderBy, Timestamp, where } from "firebase/firestore";
 import type { Issue } from "@/types";
 
 // Helper function to convert Firestore Timestamps in an issue object to ISO strings
-// This is important for serialization when passing data from Server Components to Client Components
-// or when data might be stringified (e.g., in props).
 function processIssueTimestamps(issueData: any): Omit<Issue, 'id' | 'createdAt'> & { createdAt: string } {
   const processedData = { ...issueData };
   if (issueData.createdAt && issueData.createdAt instanceof Timestamp) {
@@ -18,8 +16,12 @@ function processIssueTimestamps(issueData: any): Omit<Issue, 'id' | 'createdAt'>
   return processedData as Omit<Issue, 'id' | 'createdAt'> & { createdAt: string };
 }
 
+type GetIssuesResult = {
+  issues: Issue[];
+  errorType?: 'permission-denied' | 'other';
+};
 
-async function getCitizenIssues(): Promise<Issue[]> {
+async function getCitizenIssues(): Promise<GetIssuesResult> {
   try {
     const issuesCollectionRef = collection(db, "issues");
     
@@ -39,31 +41,43 @@ async function getCitizenIssues(): Promise<Issue[]> {
         ...processIssueTimestamps(data),
       } as Issue);
     });
-    return issues;
+    return { issues, errorType: undefined };
   } catch (error: any) {
     if (error.code === 'permission-denied') {
       console.error("Firebase Permission Error in getCitizenIssues: ", error.message);
       console.error("ACTION REQUIRED: Please check your Firestore Security Rules in the Firebase console. The current rules are preventing data from being fetched for the 'issues' collection.");
+      return { issues: [], errorType: 'permission-denied' };
     } else {
       console.error("Error fetching citizen issues:", error);
+      return { issues: [], errorType: 'other' };
     }
-    return []; // Return empty array on error
   }
 }
 
 export default async function MyReportsPage() {
-  const userIssues = await getCitizenIssues();
+  const { issues: userIssues, errorType } = await getCitizenIssues();
 
   return (
     <div className="space-y-6">
       <h1 className="text-3xl font-bold text-primary">My Reported Issues</h1>
       
-      {userIssues.length === 0 ? (
+      {errorType === 'permission-denied' ? (
+        <Alert variant="destructive" className="bg-red-50 border-red-200 text-red-700">
+          <AlertTriangle className="h-5 w-5" />
+          <AlertTitle className="font-semibold">Access Denied</AlertTitle>
+          <AlertDescription>
+            Could not fetch your reported issues due to a permission error.
+            Please check your Firestore Security Rules in the Firebase console.
+            The current rules are preventing data from being fetched for the 'issues' collection.
+          </AlertDescription>
+        </Alert>
+      ) : userIssues.length === 0 ? (
         <Alert className="bg-secondary/50 border-primary/20">
           <Frown className="h-5 w-5 text-primary" />
           <AlertTitle className="text-primary font-semibold">No Reports Found</AlertTitle>
           <AlertDescription className="text-foreground/80">
-            You haven&apos;t reported any issues yet, or there was an issue fetching your reports (check console for details).
+            You haven&apos;t reported any issues yet.
+            {errorType === 'other' && " There might have been an issue fetching your reports (check console for details)."}
             When you report an issue, it will appear here.
           </AlertDescription>
         </Alert>
