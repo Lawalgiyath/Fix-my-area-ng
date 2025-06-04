@@ -22,7 +22,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { useState } from "react";
 import { Loader2, ShieldCheck } from "lucide-react";
-import type { UserRole, UserRegistrationFormData as SignUpFormValues, MockDisplayUser } from "@/types"; // Import MockDisplayUser
+import type { UserRole, UserRegistrationFormData as SignUpFormValues, MockDisplayUser } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 import { registerUser } from "@/actions/user-actions"; 
 import { useUser } from "@/contexts/user-context";
@@ -110,30 +110,30 @@ export function SignUpForm() {
 
       if (process.env.NEXT_PUBLIC_USE_MOCK_AUTH === 'true') {
          if (typeof window !== 'undefined') {
+            // Save UID for UserContext to pick up
             localStorage.setItem(LOCAL_STORAGE_KEYS.CURRENT_USER_UID, result.firebaseUid);
+            
+            // Directly save display info for AppShell from form values
+            const displayUser: MockDisplayUser = {
+              firstName: values.firstName,
+              lastName: values.lastName,
+              moniker: values.moniker,
+              gender: values.gender,
+            };
+            localStorage.setItem('mockUser', JSON.stringify(displayUser));
         }
       }
       
       await userContext.reloadUserProfile(result.firebaseUid);
 
-      const registeredUser = userContext.currentUser;
-      setIsLoading(false); // Stop loading indicator here
+      const registeredUserFromContext = userContext.currentUser;
+      setIsLoading(false); 
 
-      if (registeredUser) {
-          // Save to 'mockUser' for AppShell display consistency if in mock mode
-          if (typeof window !== 'undefined' && process.env.NEXT_PUBLIC_USE_MOCK_AUTH === 'true') {
-              const displayUser: MockDisplayUser = {
-                  firstName: registeredUser.firstName,
-                  lastName: registeredUser.lastName,
-                  moniker: registeredUser.moniker,
-                  gender: registeredUser.gender,
-              };
-              localStorage.setItem('mockUser', JSON.stringify(displayUser));
-          }
+      if (registeredUserFromContext) {
           // Role-based redirection
-          if (registeredUser.role === "citizen") {
+          if (registeredUserFromContext.role === "citizen") {
               router.push("/citizen/dashboard");
-          } else if (registeredUser.role === "official") {
+          } else if (registeredUserFromContext.role === "official") {
               router.push("/official/dashboard");
           } else {
               router.push("/"); 
@@ -141,10 +141,15 @@ export function SignUpForm() {
       } else {
            toast({
               title: "Profile Not Loaded After Registration",
-              description: "Registration successful, but profile could not be loaded. Please try logging in.",
+              description: "Registration successful, but profile could not be loaded into context. Please try logging in.",
               variant: "destructive",
            });
-          await userContext.logout(); // Clean up any partial auth state
+          if (process.env.NEXT_PUBLIC_USE_MOCK_AUTH === 'true' && typeof window !== 'undefined') {
+            // Clean up potentially inconsistent state if context loading failed
+            localStorage.removeItem(LOCAL_STORAGE_KEYS.CURRENT_USER_UID);
+            localStorage.removeItem('mockUser');
+          }
+          await userContext.logout(); 
           router.push("/");
       }
 
@@ -350,3 +355,4 @@ export function SignUpForm() {
     </Card>
   );
 }
+
