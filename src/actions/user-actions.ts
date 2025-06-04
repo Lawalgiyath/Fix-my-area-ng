@@ -2,10 +2,22 @@
 'use server';
 
 import type { AppUser, UserProfileFirestoreData, UserRegistrationFormData, MockRegisteredUser } from '@/types';
-import { auth, db } from '@/lib/firebase-config';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut as firebaseSignOut } from 'firebase/auth';
-import { doc, setDoc, getDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
-import { LOCAL_STORAGE_KEYS, PLACEHOLDER_ERROR_DATE_ISO } from '@/lib/constants'; // Import keys
+import { app } from '@/lib/firebase-config';
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut as firebaseSignOut, type Auth } from 'firebase/auth';
+import { LOCAL_STORAGE_KEYS, PLACEHOLDER_ERROR_DATE_ISO } from '@/lib/constants';
+
+// Conditionally initialize Firebase Auth
+let auth: Auth | null = null;
+if (process.env.NEXT_PUBLIC_USE_MOCK_AUTH !== 'true') {
+  if (app) {
+    auth = getAuth(app);
+  } else {
+    // This case should ideally not be reached if firebase-config is set up correctly for non-mock scenarios
+    // or if app is intended to be uninitialized.
+    console.warn("[user-actions] Firebase app is not initialized. Firebase Auth will be unavailable. Ensure Firebase is configured if not using mock auth.");
+  }
+}
+// If NEXT_PUBLIC_USE_MOCK_AUTH === 'true', auth remains null, and Firebase Auth calls below are bypassed.
 
 function getMockRegisteredUsers(): MockRegisteredUser[] {
   if (typeof window === 'undefined') return [];
@@ -34,10 +46,7 @@ export async function registerUser(
       const newMockUser: MockRegisteredUser = {
         uid: `mock-uid-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
         email: formData.email,
-        // Do NOT store password in LS for real apps; this is purely for mock login.
-        // For a slightly better mock, you might hash it or just not store it and always allow login.
-        // For this MVP mock, we'll store it to simulate a password check.
-        password: formData.password,
+        password: formData.password, // Store for mock login check
         firstName: formData.firstName,
         lastName: formData.lastName,
         moniker: formData.moniker,
@@ -57,29 +66,13 @@ export async function registerUser(
   }
 
   // Firebase Path
-  if (!auth || !db) {
-    return { success: false, error: 'Firebase is not initialized. Cannot register user.' };
+  if (!auth) {
+    return { success: false, error: 'Firebase Auth is not initialized. Cannot register user. Ensure Firebase config is correct or enable mock auth.' };
   }
   try {
     const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password!);
     const firebaseUser = userCredential.user;
-
-    const userProfileData: Omit<UserProfileFirestoreData, 'createdAt'> = {
-      uid: firebaseUser.uid,
-      email: firebaseUser.email || formData.email,
-      firstName: formData.firstName,
-      lastName: formData.lastName,
-      moniker: formData.moniker,
-      gender: formData.gender,
-      role: formData.role,
-      officialId: formData.officialId,
-    };
-
-    await setDoc(doc(db, "user_profiles", firebaseUser.uid), {
-      ...userProfileData,
-      createdAt: serverTimestamp(),
-    });
-    console.log(`[${actionId}] Firebase user registered and profile created: ${firebaseUser.uid}`);
+    console.log(`[${actionId}] Firebase user registered: ${firebaseUser.uid}. Profile data NOT saved to Firestore.`);
     return { success: true, firebaseUid: firebaseUser.uid };
   } catch (error: any) {
     console.error(`[${actionId}] Firebase registration error:`, error);
@@ -89,7 +82,7 @@ export async function registerUser(
 
 export async function loginUser(
   email: string,
-  passwordInput: string // Renamed to avoid conflict with stored password
+  passwordInput: string
 ): Promise<{ success: boolean; error?: string; firebaseUid?: string }> {
   const actionId = `loginUser-${Date.now()}`;
    console.log(`[${actionId}] Logging in user. Mock Auth: ${process.env.NEXT_PUBLIC_USE_MOCK_AUTH}`);
@@ -98,7 +91,7 @@ export async function loginUser(
     try {
       const mockUsers = getMockRegisteredUsers();
       const user = mockUsers.find(u => u.email === email);
-      if (user && user.password === passwordInput) { // Simple password check for mock
+      if (user && user.password === passwordInput) {
         console.log(`[${actionId}] Mock user login successful: ${user.uid}`);
         return { success: true, firebaseUid: user.uid };
       }
@@ -111,7 +104,7 @@ export async function loginUser(
 
   // Firebase Path
   if (!auth) {
-    return { success: false, error: 'Firebase Auth is not initialized. Cannot login user.' };
+    return { success: false, error: 'Firebase Auth is not initialized. Cannot login user. Ensure Firebase config is correct or enable mock auth.' };
   }
   try {
     const userCredential = await signInWithEmailAndPassword(auth, email, passwordInput);
@@ -128,14 +121,15 @@ export async function logoutUser(): Promise<{ success: boolean; error?: string }
   console.log(`[${actionId}] Logging out user. Mock Auth: ${process.env.NEXT_PUBLIC_USE_MOCK_AUTH}`);
 
   if (process.env.NEXT_PUBLIC_USE_MOCK_AUTH === 'true') {
-    // For mock, UserContext will handle clearing the current user UID from LS
     console.log(`[${actionId}] Mock user logout initiated.`);
-    return { success: true };
+    // UserContext will handle clearing local storage UID for mock users
+    return { success: true }; 
   }
 
   // Firebase Path
   if (!auth) {
-    return { success: false, error: 'Firebase Auth is not initialized.' };
+    console.warn(`[${actionId}] Firebase Auth not initialized. Logout will only affect client state if UserContext handles it (for non-mock scenarios).`);
+    return { success: true }; 
   }
   try {
     await firebaseSignOut(auth);
@@ -147,61 +141,35 @@ export async function logoutUser(): Promise<{ success: boolean; error?: string }
   }
 }
 
+// This function now ONLY retrieves from local storage.
+// The "Firestore" part of its name is now a misnomer but kept for compatibility with UserContext calls.
 export async function getAppUserProfileFirestore(uid: string): Promise<UserProfileFirestoreData | null> {
   const actionId = `getAppUserProfile-${uid.substring(0,5)}-${Date.now()}`;
-  console.log(`[${actionId}] Getting user profile for UID: ${uid}. Mock Auth: ${process.env.NEXT_PUBLIC_USE_MOCK_AUTH}`);
+  console.log(`[${actionId}] Getting user profile (from local storage for ALL modes) for UID: ${uid}.`);
 
-  if (process.env.NEXT_PUBLIC_USE_MOCK_AUTH === 'true') {
-    try {
-      const mockUsers = getMockRegisteredUsers();
-      const user = mockUsers.find(u => u.uid === uid);
-      if (user) {
-        const profile: UserProfileFirestoreData = {
-          uid: user.uid,
-          email: user.email,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          moniker: user.moniker,
-          gender: user.gender,
-          role: user.role,
-          officialId: user.officialId,
-          createdAt: user.createdAt, // Already ISO string
-        };
-        console.log(`[${actionId}] Found mock user profile.`);
-        return profile;
-      }
-      console.warn(`[${actionId}] Mock user profile not found for UID: ${uid}`);
-      return null;
-    } catch (e) {
-      console.error(`[${actionId}] Error fetching mock user profile:`, e);
-      return null;
-    }
-  }
-
-  // Firebase Path
-  if (!db) {
-    console.error(`[${actionId}] Firestore (db) is not initialized.`);
-    return null;
-  }
+  // ALWAYS fetch from local storage as Firestore is removed for profiles.
   try {
-    const userDocRef = doc(db, "user_profiles", uid);
-    const userDocSnap = await getDoc(userDocRef);
-    if (userDocSnap.exists()) {
-      const data = userDocSnap.data();
-      const profileData = {
-        ...data,
-        uid: userDocSnap.id,
-        // Ensure createdAt is converted to ISO string if it's a Firestore Timestamp
-        createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate().toISOString() : (data.createdAt || PLACEHOLDER_ERROR_DATE_ISO),
-      } as UserProfileFirestoreData;
-      console.log(`[${actionId}] Found Firebase user profile.`);
-      return profileData;
-    } else {
-      console.warn(`[${actionId}] No user profile document found in Firestore for UID: ${uid}`);
-      return null;
+    const mockUsers = getMockRegisteredUsers();
+    const user = mockUsers.find(u => u.uid === uid);
+    if (user) {
+      const profile: UserProfileFirestoreData = {
+        uid: user.uid,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        moniker: user.moniker,
+        gender: user.gender,
+        role: user.role,
+        officialId: user.officialId,
+        createdAt: user.createdAt, 
+      };
+      console.log(`[${actionId}] Found user profile in local storage.`);
+      return profile;
     }
-  } catch (error) {
-    console.error(`[${actionId}] Error fetching user profile from Firestore:`, error);
+    console.warn(`[${actionId}] User profile not found in local storage for UID: ${uid}`);
+    return null;
+  } catch (e) {
+    console.error(`[${actionId}] Error fetching user profile from local storage:`, e);
     return null;
   }
 }
