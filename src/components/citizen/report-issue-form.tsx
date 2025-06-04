@@ -17,7 +17,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { categorizeIssue, type CategorizeIssueOutput } from "@/ai/flows/categorize-issue";
 import { assessIssueUrgency, type AssessIssueUrgencyOutput } from "@/ai/flows/assess-issue-urgency";
 import { summarizeIssueDescription, type SummarizeIssueOutput } from "@/ai/flows/summarize-issue-flow";
@@ -28,8 +28,9 @@ import { CheckCircle, Info, Loader2, MapPin, UploadCloud, ShieldAlert, FileText,
 import { FORUM_CATEGORIES } from "@/lib/constants";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-import { storage } from "@/lib/firebase-config"; // Import Firebase storage instance
-import { ref as storageRef, uploadBytesResumable, getDownloadURL } from "firebase/storage"; // Firebase storage functions
+import { storage } from "@/lib/firebase-config";
+import { ref as storageRef, uploadBytesResumable, getDownloadURL } from "firebase/storage";
+import { useUser } from "@/contexts/user-context"; // Import useUser hook
 
 const reportIssueSchema = z.object({
   title: z.string().min(5, { message: "Title must be at least 5 characters." }).max(100),
@@ -40,6 +41,7 @@ const reportIssueSchema = z.object({
 });
 
 export function ReportIssueForm() {
+  const { currentUser, loadingAuth } = useUser(); // Get user from context
   const [isUploadingMedia, setIsUploadingMedia] = useState(false);
   const [isProcessingAi, setIsProcessingAi] = useState(false);
   const [isSubmittingDb, setIsSubmittingDb] = useState(false);
@@ -61,18 +63,42 @@ export function ReportIssueForm() {
     },
   });
 
+  // Reset form and success state if user changes (e.g., logs out and logs back in)
+  useEffect(() => {
+    if (submissionSuccess) {
+      setSubmissionSuccess(false); // Allow new submissions
+      form.reset();
+      setSelectedFiles([]);
+      setAiCategorizationResult(null);
+      setAiUrgencyResult(null);
+      setAiSummaryResult(null);
+    }
+  }, [currentUser, submissionSuccess, form]);
+
+
   async function onSubmit(values: z.infer<typeof reportIssueSchema>) {
+    if (process.env.NEXT_PUBLIC_USE_MOCK_AUTH !== 'true' && (!currentUser || !currentUser.uid)) {
+        toast({
+            title: "Authentication Error",
+            description: "You must be logged in to report an issue. If you just logged in, please wait a moment and try again.",
+            variant: "destructive",
+        });
+        return;
+    }
+
     setIsUploadingMedia(false);
     setIsProcessingAi(false);
     setIsSubmittingDb(false);
     setAiCategorizationResult(null);
     setAiUrgencyResult(null);
     setAiSummaryResult(null);
-    setSubmissionSuccess(false);
+    setSubmissionSuccess(false); // Reset submission success state for new attempt
     let currentCategorization: CategorizeIssueOutput | null = null;
     let currentUrgency: AssessIssueUrgencyOutput | null = null;
     let currentSummary: SummarizeIssueOutput | null = null;
     let uploadedMediaUrls: string[] = [];
+    
+    const reporterId = process.env.NEXT_PUBLIC_USE_MOCK_AUTH === 'true' ? 'mock_citizen_user_id' : currentUser?.uid || null;
 
     try {
       // 1. Media Upload (if any)
@@ -86,7 +112,7 @@ export function ReportIssueForm() {
           return new Promise<string>((resolve, reject) => {
             uploadTask.on(
               "state_changed",
-              null, // We can add a progress handler here if needed
+              null, 
               (error) => reject(error),
               async () => {
                 const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
@@ -127,7 +153,8 @@ export function ReportIssueForm() {
         currentCategorization,
         currentUrgency,
         currentSummary,
-        uploadedMediaUrls // Pass uploaded URLs
+        uploadedMediaUrls,
+        reporterId // Pass the determined reporter ID
       );
 
       if (submissionResult.success) {
@@ -155,11 +182,11 @@ export function ReportIssueForm() {
           className: "bg-green-50 border-green-200 text-green-700",
           duration: 9000,
         });
-        form.reset();
-        setSelectedFiles([]);
-        setAiCategorizationResult(null);
-        setAiUrgencyResult(null);
-        setAiSummaryResult(null);
+        // form.reset(); // Form reset is now handled by useEffect on submissionSuccess or user change
+        // setSelectedFiles([]);
+        // setAiCategorizationResult(null);
+        // setAiUrgencyResult(null);
+        // setAiSummaryResult(null);
       } else {
         throw new Error(submissionResult.error || "Failed to save report to database.");
       }
@@ -168,7 +195,7 @@ export function ReportIssueForm() {
       console.error("Error reporting issue:", error);
       const errorMessage = error instanceof Error ? error.message : "Could not submit or analyze the issue. Please try again.";
       toast({
-        title: "Error",
+        title: "Error Submitting Report",
         description: errorMessage,
         variant: "destructive",
       });
@@ -182,10 +209,8 @@ export function ReportIssueForm() {
   const handleMediaChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
       const filesArray = Array.from(event.target.files);
-      // Limit to 5 files for demo purposes
       const limitedFiles = filesArray.slice(0, 5);
       setSelectedFiles(limitedFiles);
-      // Create a new FileList for the form
       const dataTransfer = new DataTransfer();
       limitedFiles.forEach(file => dataTransfer.items.add(file));
       form.setValue("media", dataTransfer.files);
@@ -216,7 +241,15 @@ export function ReportIssueForm() {
   if (isUploadingMedia) buttonText = "Uploading Media...";
   else if (isProcessingAi) buttonText = "Analyzing Issue...";
   else if (isSubmittingDb) buttonText = "Saving Report...";
-  if (submissionSuccess) buttonText = "Report Another Issue";
+  
+  let submitDisabled = isLoading || submissionSuccess;
+  if (process.env.NEXT_PUBLIC_USE_MOCK_AUTH !== 'true' && (loadingAuth || !currentUser)) {
+    buttonText = "Login Required to Report";
+    submitDisabled = true;
+  } else if (submissionSuccess) {
+     buttonText = "Report Another Issue"; // This will now trigger a form reset via useEffect
+     // Keep submitDisabled = true to prevent immediate re-submission until form is ready/reset
+  }
 
 
   return (
@@ -237,7 +270,7 @@ export function ReportIssueForm() {
                 <FormItem>
                   <FormLabel>Issue Title</FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g., Broken streetlight on Elm Street" {...field} disabled={isLoading || submissionSuccess} />
+                    <Input placeholder="e.g., Broken streetlight on Elm Street" {...field} disabled={submitDisabled && !submissionSuccess} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -254,7 +287,7 @@ export function ReportIssueForm() {
                       placeholder="Describe the issue, its impact, and when you noticed it."
                       className="min-h-[120px]"
                       {...field}
-                      disabled={isLoading || submissionSuccess}
+                      disabled={submitDisabled && !submissionSuccess}
                     />
                   </FormControl>
                   <FormMessage />
@@ -270,7 +303,7 @@ export function ReportIssueForm() {
                     <MapPin className="mr-2 h-4 w-4 text-muted-foreground" /> Location Description
                   </FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g., Corner of Elm Street and Oak Avenue" {...field} disabled={isLoading || submissionSuccess}/>
+                    <Input placeholder="e.g., Corner of Elm Street and Oak Avenue" {...field} disabled={submitDisabled && !submissionSuccess}/>
                   </FormControl>
                   <FormDescription>
                     Provide a clear textual description of the location.
@@ -285,7 +318,7 @@ export function ReportIssueForm() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Category (Optional Override)</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoading || submissionSuccess}>
+                  <Select onValueChange={field.onChange} defaultValue={field.value} disabled={submitDisabled && !submissionSuccess}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select if AI suggestion needs correction" />
@@ -329,7 +362,7 @@ export function ReportIssueForm() {
                       accept="image/*,video/*" 
                       multiple
                       onChange={handleMediaChange} 
-                      disabled={isLoading || submissionSuccess}
+                      disabled={submitDisabled && !submissionSuccess}
                       className="block w-full text-sm text-slate-500
                         file:mr-4 file:py-2 file:px-4
                         file:rounded-full file:border-0
@@ -409,7 +442,11 @@ export function ReportIssueForm() {
 
           </CardContent>
           <CardFooter>
-            <Button type="submit" className="w-full" disabled={isLoading || submissionSuccess}>
+            <Button type="submit" className="w-full" disabled={submitDisabled} onClick={() => {
+                if (submissionSuccess) { // If it was successful, this click means "Report Another Issue"
+                    setSubmissionSuccess(false); // This will trigger useEffect to reset the form
+                }
+            }}>
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {buttonText}
             </Button>
@@ -419,3 +456,4 @@ export function ReportIssueForm() {
     </Card>
   );
 }
+
